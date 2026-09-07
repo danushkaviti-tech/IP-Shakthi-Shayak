@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: ip_sakti_chroma
+    ports:
+      - "8000:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:latest
+    container_name: ip_sakti_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=ip-sakti
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+    driver: local
+  mongo_data:
+    driver: local

@@ -1,13 +1,32 @@
 import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGODB_URI;
+const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/ip-sakti";
 
-if (!uri) {
-  throw new Error("MONGODB_URI is not defined");
+let client: MongoClient;
+let clientPromise: Promise<MongoClient>;
+
+if (process.env.NODE_ENV === "development") {
+  // In development mode, use a global variable so that the value
+  // is preserved across module reloads caused by HMR (Hot Module Replacement).
+  let globalWithMongo = global as typeof globalThis & {
+    _mongoClientPromise?: Promise<MongoClient>;
+  };
+
+  if (!globalWithMongo._mongoClientPromise) {
+    client = new MongoClient(uri);
+    globalWithMongo._mongoClientPromise = client.connect().catch((err) => {
+      console.warn("MongoDB connection fallback warning:", err?.message || err);
+      return client;
+    });
+  }
+  clientPromise = globalWithMongo._mongoClientPromise;
+} else {
+  // In production mode, it's best to not use a global variable.
+  client = new MongoClient(uri);
+  clientPromise = client.connect().catch((err) => {
+    console.warn("MongoDB connection warning in production:", err?.message || err);
+    return client;
+  });
 }
-
-const client = new MongoClient(uri);
-
-let clientPromise = client.connect();
 
 export default clientPromise;

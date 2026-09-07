@@ -1,0 +1,21 @@
+THE PATENTS ACT, 1970 (ACT NO. 39 OF 1970)
+AS AMENDED BY PATENTS (AMENDMENT) ACT, 2005
+CHAPTER II: INVENTIONS NOT PATENTABLE
+
+SECTION 3(p):
+"The following are not inventions within the meaning of this Act,—
+(p) an invention which in effect, is traditional knowledge or which is an aggregation or duplication of known properties of traditionally known component or components."
+
+STATUTORY ANALYSIS & GUIDELINES FOR EXAMINATION OF PATENT APPLICATIONS RELATING TO TRADITIONAL KNOWLEDGE AND AYURVEDA:
+
+1. Novelty & Inventive Step in Herbal Formulations:
+- An extract or combination of traditionally known medicinal plants (e.g., Curcuma longa, Withania somnifera, Ocimum sanctum) whose therapeutic properties are already documented in ancient texts (Charaka Samhita, Sushruta Samhita, Ashtanga Hridaya) falls squarely under Section 3(p).
+- Synergistic Formulation Claims: To overcome Section 3(p) and Section 3(e) (mere admixture), applicants must present comparative experimental evidence demonstrating unexpected synergistic therapeutic effects beyond mere additive properties.
+
+2. National Biodiversity Authority (NBA) Permission:
+- Under Section 6 of the Biological Diversity Act, 2002, any applicant seeking a patent based on biological resources or associated traditional knowledge obtained from India MUST obtain prior approval from the National Biodiversity Authority (NBA) before the grant of the patent.
+
+3. TKDL Integration:
+- Patent examiners must consult the Traditional Knowledge Digital Library (TKDL) database to search for prior art references across Ayurveda, Unani, Siddha, and Yoga formulations before allowing any claim.
+
+Verified by Indian Patent Office (IPO) Guidelines.

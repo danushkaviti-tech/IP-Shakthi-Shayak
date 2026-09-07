@@ -1,9 +1,12 @@
 import { ChromaClient } from "chromadb";
 
+const host = process.env.CHROMA_SERVER_HOST || "localhost";
+const port = parseInt(process.env.CHROMA_SERVER_HTTP_PORT || "8000", 10);
+
 const client = new ChromaClient({
-  host: "localhost",
-  port: 8000,
   ssl: false,
+  host,
+  port,
 });
 
 export async function getKnowledgeCollection() {
@@ -26,6 +29,7 @@ export async function addKnowledge(
     ipType?: string;
     language?: string;
     version?: string;
+    userEmail?: string;
   }
 ) {
   const collection = await getKnowledgeCollection();
@@ -38,4 +42,28 @@ export async function addKnowledge(
   });
 
   return true;
+}
+
+export async function getChromaStats() {
+  try {
+    const collection = await getKnowledgeCollection();
+    const count = await collection.count();
+    return {
+      connected: true,
+      host,
+      port,
+      collectionName: "ip_sakti_knowledge",
+      totalVectors: count,
+    };
+  } catch (error) {
+    console.error("Chroma connection error:", error);
+    return {
+      connected: false,
+      host,
+      port,
+      collectionName: "ip_sakti_knowledge",
+      totalVectors: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }

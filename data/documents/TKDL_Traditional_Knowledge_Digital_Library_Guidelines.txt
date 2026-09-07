@@ -1,0 +1,20 @@
+TRADITIONAL KNOWLEDGE DIGITAL LIBRARY (TKDL)
+COUNCIL OF SCIENTIFIC & INDUSTRIAL RESEARCH (CSIR) & MINISTRY OF AYUSH
+GOVERNMENT OF INDIA
+
+GUIDELINES FOR PRIOR ART SEARCH AND DEFENSIVE PROTECTION OF AYURVEDA KNOWLEDGE:
+
+1. Overview:
+The Traditional Knowledge Digital Library (TKDL) is a pioneering Indian digital repository containing over 450,000 formulations from ancient classical texts of Ayurveda, Siddha, Unani, and Sowa-Rigpa translated into five international languages (English, German, French, Japanese, Spanish).
+
+2. Purpose & Legal Standard:
+- Serves as non-patent prior art defense against biopiracy and wrongful patenting of traditional Indian medicine abroad (USPTO, EPO, JPO).
+- References Sanskrit slokas from classical treatises including Charaka Samhita, Sushruta Samhita, Sarngadhara Samhita, and Bhavaprakasha.
+
+3. Key Examination Provisions for AYUSH Inventions:
+- If a medicinal formulation matches a recipe in TKDL, novelty is destroyed under Indian Patents Act Section 2(1)(j).
+- If modified, the burden is on the applicant to establish non-obviousness and non-infringement of Section 3(p).
+
+4. Access Protocols:
+- Available to international patent offices under non-disclosure access agreements to prevent misappropriation.
+- Institutional researchers can request prior art clearance for translational commercialization under AYUSH National Policy.

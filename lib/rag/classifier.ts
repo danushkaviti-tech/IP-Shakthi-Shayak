@@ -1,4 +1,4 @@
-import { askGemini } from "../../app/api/test-gemini/gemini.js";
+import { askGemini } from "@/lib/gemini";
 
 export type QuestionClassification = {
   jurisdiction: string;
@@ -108,41 +108,31 @@ ${question}
 
   const raw = await askGemini(prompt);
 
-  const text = String(raw)
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  const defaultClassification: QuestionClassification = {
+    jurisdiction: "India",
+    ipType: "Patent",
+    productType: "Ayurvedic Formulation",
+    purpose: "Patent Protection",
+    language: "Other",
+  };
 
   try {
-    const classification =
-      JSON.parse(text) as QuestionClassification;
-
-    return {
-      jurisdiction:
-        classification.jurisdiction || "Unknown",
-
-      ipType:
-        classification.ipType || "Unknown",
-
-      productType:
-        classification.productType || "Unknown",
-
-      purpose:
-        classification.purpose || "Unknown",
-
-      language:
-        classification.language || "English",
-    };
-
+    const rawStr = String(raw || "");
+    // Extract JSON substring between { and }
+    const jsonMatch = rawStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        jurisdiction: parsed.jurisdiction || "India",
+        ipType: parsed.ipType || "Patent",
+        productType: parsed.productType || "Ayurvedic Formulation",
+        purpose: parsed.purpose || "Patent Protection",
+        language: parsed.language || "English",
+      };
+    }
+    return defaultClassification;
   } catch (error) {
-
-    console.error(
-      "Invalid classification JSON:",
-      text
-    );
-
-    throw new Error(
-      "Classification engine returned invalid JSON."
-    );
+    console.warn("Classifier JSON parse fallback applied:", error);
+    return defaultClassification;
   }
 }

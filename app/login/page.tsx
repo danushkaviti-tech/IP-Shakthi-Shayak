@@ -1,231 +1,211 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { IconShield, IconSparkles } from "@/src/components/Icons";
 
 export default function LoginPage() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    await executeLogin(email.toLowerCase().trim(), password);
+  }
 
+  async function executeLogin(userEmail: string, userPass: string) {
     setError("");
     setLoading(true);
 
     try {
+      try {
+        await signOut({ redirect: false });
+      } catch {
+        // Ignore signout errors
+      }
+
       const result = await signIn("credentials", {
-        email,
-        password,
+        email: userEmail,
+        password: userPass,
         redirect: false,
       });
 
-      if (result?.error) {
-        setError("Invalid email or password.");
+      if (!result || result.error) {
+        setError("Invalid email or password. Please verify credentials.");
         setLoading(false);
         return;
       }
 
-      router.push("/");
-      router.refresh();
-    } catch {
-      setError("Something went wrong. Please try again.");
+      const isAdmin =
+        userEmail.toLowerCase() === "admin@ipsakti.gov.in" ||
+        userEmail.toLowerCase().startsWith("admin@");
+
+      if (isAdmin) {
+        window.location.href = "/admin/analytics";
+      } else {
+        window.location.href = "/dashboard";
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Authentication error. Please try again.");
       setLoading(false);
     }
   }
 
+  function handleDemoUser() {
+    setEmail("user@ipsakti.gov.in");
+    setPassword("user123");
+    executeLogin("user@ipsakti.gov.in", "user123");
+  }
+
+  function handleDemoAdmin() {
+    setEmail("admin@ipsakti.gov.in");
+    setPassword("admin123");
+    executeLogin("admin@ipsakti.gov.in", "admin123");
+  }
+
   return (
-    <main className="min-h-screen bg-[#050816] text-white flex items-center justify-center px-5 relative overflow-hidden">
+    <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex items-center justify-center p-4 font-sans selection:bg-zinc-800 selection:text-white">
+      <div className="w-full max-w-md space-y-6">
+        {/* LOGO */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex h-12 w-12 rounded-2xl bg-zinc-100 text-black font-bold items-center justify-center text-lg shadow-xl mb-1">
+            IP
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-white">
+            IP-SAKTI Regulatory Intelligence
+          </h1>
+          <p className="text-xs text-zinc-500 font-sans">
+            Enterprise RAG Platform for Intellectual Property & Traditional Knowledge
+          </p>
+        </div>
 
-      {/* Background */}
-      <div className="absolute inset-0">
-        <div className="absolute top-[-180px] left-[-150px] w-[400px] h-[400px] bg-violet-600/20 blur-[130px] rounded-full" />
-        <div className="absolute bottom-[-180px] right-[-150px] w-[400px] h-[400px] bg-cyan-500/15 blur-[130px] rounded-full" />
-      </div>
+        {/* LOGIN CARD */}
+        <div className="rounded-2xl border border-[#1e1e28] bg-[#0e0e14] p-6 sm:p-8 shadow-2xl space-y-6">
+          {/* QUICK DEMO BUTTONS */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono text-center">
+              Quick One-Click Demo Access
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={handleDemoUser}
+                disabled={loading}
+                className="p-3 rounded-xl border border-[#222230] bg-[#14141c] hover:bg-[#1a1a24] text-left transition flex flex-col justify-between group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-semibold text-white">Researcher</span>
+                  <span className="text-[10px] text-zinc-500 font-mono">Demo</span>
+                </div>
+                <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate">
+                  user@ipsakti.gov.in
+                </span>
+              </button>
 
-      <div className="relative w-full max-w-5xl grid lg:grid-cols-2 gap-10 items-center">
+              <button
+                type="button"
+                onClick={handleDemoAdmin}
+                disabled={loading}
+                className="p-3 rounded-xl border border-[#222230] bg-[#14141c] hover:bg-[#1a1a24] text-left transition flex flex-col justify-between group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-semibold text-white flex items-center gap-1">
+                    <IconShield className="w-3 h-3 text-zinc-300" />
+                    <span>Admin</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-mono">Control</span>
+                </div>
+                <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate">
+                  admin@ipsakti.gov.in
+                </span>
+              </button>
+            </div>
+          </div>
 
-        {/* Left */}
-        <div className="hidden lg:block px-8">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#1e1e28]" />
+            <span className="text-[10px] text-zinc-600 font-mono uppercase tracking-widest">
+              Or with credentials
+            </span>
+            <div className="h-px flex-1 bg-[#1e1e28]" />
+          </div>
 
-          <div className="inline-flex items-center gap-3 mb-8">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400 flex items-center justify-center text-xl font-bold shadow-lg shadow-violet-500/20">
-              IP
+          {/* CREDENTIALS FORM */}
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-zinc-300">Email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="researcher@ipsakti.gov.in"
+                required
+                autoComplete="email"
+                className="mt-1.5 w-full rounded-xl border border-[#1e1e28] bg-[#070709] px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 transition font-sans"
+              />
             </div>
 
             <div>
-              <h1 className="font-bold text-xl">IP-SAKTI</h1>
-              <p className="text-xs text-slate-500">
-                Sahayak
-              </p>
-            </div>
-          </div>
-
-          <h2 className="text-5xl font-bold leading-tight">
-            Intelligent guidance for
-            <span className="block bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
-              Ayurveda & IP.
-            </span>
-          </h2>
-
-          <p className="mt-6 text-slate-400 text-lg leading-8 max-w-lg">
-            Explore intellectual property and regulatory guidance with
-            source-cited AI assistance designed specifically for Ayurveda.
-          </p>
-
-          <div className="mt-8 space-y-4">
-
-            {[
-              "Source-cited RAG responses",
-              "Indian & international IP guidance",
-              "Multilingual AI assistance",
-              "Secure research workspace",
-            ].map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-3 text-sm text-slate-300"
-              >
-                <div className="h-6 w-6 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
-                  ✓
-                </div>
-                {item}
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-zinc-300">Password</label>
+                <Link
+                  href="/forgot-password"
+                  className="text-[11px] text-zinc-500 hover:text-white transition"
+                >
+                  Forgot password?
+                </Link>
               </div>
-            ))}
+              <div className="relative mt-1.5">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  className="w-full rounded-xl border border-[#1e1e28] bg-[#070709] px-3.5 pr-12 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 transition font-sans"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-300 font-mono text-[10px]"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
 
-          </div>
+            {error && (
+              <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-zinc-100 text-black hover:bg-white py-2.5 text-xs font-semibold transition disabled:opacity-50 shadow-md"
+            >
+              {loading ? "Authenticating..." : "Sign In"}
+            </button>
+          </form>
+
+          <p className="text-center text-xs text-zinc-500">
+            Don't have an account?{" "}
+            <Link href="/signup" className="text-white font-medium underline underline-offset-4 hover:text-zinc-300">
+              Create account
+            </Link>
+          </p>
         </div>
 
-        {/* Login Card */}
-        <div className="w-full max-w-md mx-auto">
-
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-8 shadow-2xl">
-
-            {/* Logo mobile */}
-            <div className="lg:hidden flex justify-center mb-7">
-              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400 flex items-center justify-center text-xl font-bold">
-                IP
-              </div>
-            </div>
-
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold">
-                Welcome back
-              </h1>
-
-              <p className="mt-2 text-sm text-slate-400">
-                Sign in to your IP-SAKTI workspace
-              </p>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-5">
-
-              {/* Email */}
-              <div>
-                <label className="text-sm text-slate-300">
-                  Email address
-                </label>
-
-                <div className="relative mt-2">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-                    @
-                  </span>
-
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    required
-                    className="w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 py-3.5 text-white placeholder:text-slate-600 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-slate-300">
-                    Password
-                  </label>
-
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs text-violet-400 hover:text-violet-300 transition"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-
-                <div className="relative mt-2">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 pr-12 py-3.5 text-white placeholder:text-slate-600 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-white"
-                  >
-                    {showPassword ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Error */}
-              {error && (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                  {error}
-                </div>
-              )}
-
-              {/* Login */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 py-3.5 font-semibold transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/10"
-              >
-                {loading ? "Signing in..." : "Sign In"}
-              </button>
-
-            </form>
-
-            <div className="my-7 flex items-center gap-4">
-              <div className="h-px flex-1 bg-white/10" />
-              <span className="text-xs text-slate-600">
-                SECURE WORKSPACE
-              </span>
-              <div className="h-px flex-1 bg-white/10" />
-            </div>
-
-            <p className="text-center text-sm text-slate-400">
-              Don't have an account?{" "}
-              <Link
-                href="/signup"
-                className="font-medium text-violet-400 hover:text-violet-300"
-              >
-                Create account
-              </Link>
-            </p>
-
-          </div>
-
-          <p className="text-center text-xs text-slate-600 mt-6">
-            IP-SAKTI Sahayak • AI-assisted research platform
-          </p>
-
-        </div>
+        <p className="text-center text-[10px] text-zinc-600 font-mono">
+          IP-SAKTI Sahayak • Autonomous RAG Knowledge System
+        </p>
       </div>
     </main>
   );
