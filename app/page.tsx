@@ -10,9 +10,8 @@ export default async function HomePage() {
 
   const user = session.user as { role?: string; email?: string };
   const isAdmin =
-    user.role === "admin" ||
-    user.email?.toLowerCase() === "admin@ipsakti.gov.in" ||
-    user.email?.toLowerCase().startsWith("admin@");
+    user.role === "admin" &&
+    (user.email?.toLowerCase().includes("danush") || user.email?.toLowerCase() === "danush@ipsakti.gov.in");
 
   if (isAdmin) {
     redirect("/admin/analytics");

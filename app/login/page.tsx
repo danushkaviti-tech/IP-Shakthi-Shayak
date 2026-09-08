@@ -56,18 +56,6 @@ export default function LoginPage() {
     }
   }
 
-  function handleDemoUser() {
-    setEmail("user@ipsakti.gov.in");
-    setPassword("user123");
-    executeLogin("user@ipsakti.gov.in", "user123");
-  }
-
-  function handleDemoAdmin() {
-    setEmail("danush@ipsakti.gov.in");
-    setPassword("danush123");
-    executeLogin("danush@ipsakti.gov.in", "danush123");
-  }
-
   return (
     <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex items-center justify-center p-4 font-sans selection:bg-zinc-800 selection:text-white">
       <div className="w-full max-w-md space-y-6">
@@ -86,53 +74,17 @@ export default function LoginPage() {
 
         {/* LOGIN CARD */}
         <div className="rounded-2xl border border-[#1e1e28] bg-[#0e0e14] p-6 sm:p-8 shadow-2xl space-y-6">
-          {/* QUICK DEMO BUTTONS */}
-          <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono text-center">
-              Quick One-Click Demo Access
-            </p>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={handleDemoUser}
-                disabled={loading}
-                className="p-3 rounded-xl border border-[#222230] bg-[#14141c] hover:bg-[#1a1a24] text-left transition flex flex-col justify-between group disabled:opacity-50"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-semibold text-white">Researcher</span>
-                  <span className="text-[10px] text-zinc-500 font-mono">Demo</span>
-                </div>
-                <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate">
-                  user@ipsakti.gov.in
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDemoAdmin}
-                disabled={loading}
-                className="p-3 rounded-xl border border-[#222230] bg-[#14141c] hover:bg-[#1a1a24] text-left transition flex flex-col justify-between group disabled:opacity-50"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1">
-                    <IconShield className="w-3 h-3 text-zinc-300" />
-                    <span>Danush</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-500 font-mono">Admin</span>
-                </div>
-                <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate">
-                  danush@ipsakti.gov.in
-                </span>
-              </button>
+          {/* CREDENTIALS INFO BADGE */}
+          <div className="p-3.5 rounded-xl border border-[#222230] bg-[#12121a] space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+              <IconShield className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Admin Authentication Required</span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-[#1e1e28]" />
-            <span className="text-[10px] text-zinc-600 font-mono uppercase tracking-widest">
-              Or with credentials
-            </span>
-            <div className="h-px flex-1 bg-[#1e1e28]" />
+            <p className="text-[11px] text-zinc-400 font-mono">
+              Admin Login ID: <span className="text-white font-semibold">danush</span>
+              <br />
+              Admin Password: <span className="text-white font-semibold">Danush@2026</span> (or <span className="text-white">danush123</span>)
+            </p>
           </div>
 
           {/* CREDENTIALS FORM */}
