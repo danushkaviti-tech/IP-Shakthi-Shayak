@@ -896,15 +896,17 @@ export default function UserDashboard() {
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-35 lg:hidden animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden animate-in fade-in duration-150"
         />
       )}
 
       {/* STATE-OF-THE-ART EXECUTIVE SIDEBAR */}
       <aside
-        className={`${
-          sidebarOpen ? "w-72 max-w-[85vw] translate-x-0" : "w-0 -translate-x-full"
-        } lg:translate-x-0 lg:w-64 transition-all duration-200 ease-in-out bg-[#0c0c10] border-r border-[#1a1a22] flex flex-col shrink-0 z-40 fixed lg:static h-full h-screen`}
+        className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto h-full flex flex-col bg-[#0c0c10] border-r border-[#1a1a22] shrink-0 transition-all duration-200 ease-in-out overflow-hidden ${
+          sidebarOpen
+            ? "translate-x-0 w-72 max-w-[85vw] shadow-2xl opacity-100 visible pointer-events-auto"
+            : "-translate-x-full w-0 opacity-0 invisible pointer-events-none lg:translate-x-0 lg:w-64 lg:opacity-100 lg:visible lg:pointer-events-auto"
+        }`}
       >
         {/* SIDEBAR HEADER */}
         <div className="p-3.5 border-b border-[#1a1a22]">
