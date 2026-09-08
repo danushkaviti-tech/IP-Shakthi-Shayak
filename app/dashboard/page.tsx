@@ -27,6 +27,11 @@ import {
   IconTrash,
   IconThumbUp,
   IconThumbDown,
+  IconZap,
+  IconChevronDown,
+  IconChevronUp,
+  IconActivity,
+  IconCpu,
 } from "@/src/components/Icons";
 
 interface AttachedFile {
@@ -68,25 +73,21 @@ const THINKING_STAGES = [
     title: "Interpreting Query Intent",
     desc: "Extracting patent taxonomy, technical domain, and statutory classification...",
     badge: "Stage 1/4",
-    icon: "🧠",
   },
   {
     title: "Searching Statutory Archives",
     desc: "Querying Indian Patent Act 1970, TKDL & AYUSH regulatory corpus...",
     badge: "Stage 2/4",
-    icon: "🔍",
   },
   {
     title: "Evaluating Precedents & Section Exemptions",
     desc: "Checking Section 3(p), 3(d), 3(e) exclusions and controller decisions...",
     badge: "Stage 3/4",
-    icon: "⚡",
   },
   {
     title: "Synthesizing Grounded Analysis",
     desc: "Formulating legal rationale with precise statutory grounding & citations...",
     badge: "Stage 4/4",
-    icon: "✍️",
   },
 ];
 
@@ -1370,7 +1371,7 @@ export default function UserDashboard() {
                   <div className="text-sm leading-relaxed whitespace-pre-wrap font-normal">
                     {msg.content ? (
                       <div>
-                        {/* CHATGPT-STYLE COLLAPSIBLE THOUGHT FOR X SECONDS CONTAINER */}
+                        {/* CHATGPT-STYLE COLLAPSIBLE THOUGHT CONTAINER */}
                         <div className="mb-3.5 rounded-xl border border-[#1d1d2b] bg-[#0a0a10]/90 overflow-hidden">
                           <button
                             onClick={() =>
@@ -1391,34 +1392,39 @@ export default function UserDashboard() {
                               <span className="text-xs font-mono text-zinc-300 flex items-center gap-1.5">
                                 {loading && index === messages.length - 1 ? (
                                   <>
-                                    <span className="text-emerald-400 font-semibold">Thinking & Analyzing</span>
+                                    <span className="text-emerald-400 font-medium">Thinking</span>
                                     <span className="text-zinc-400">({thinkingSeconds.toFixed(1)}s)</span>
                                     <span className="inline-flex gap-1 items-center ml-1">
-                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" style={{ animationDelay: "200ms" }} />
+                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" style={{ animationDelay: "400ms" }} />
                                     </span>
                                   </>
                                 ) : (
                                   <>
                                     <span className="text-zinc-400">Thought for</span>
-                                    <span className="text-zinc-200 font-semibold">{msg.thoughtDuration || "2.4s"}</span>
+                                    <span className="text-zinc-200 font-medium">{msg.thoughtDuration || "2.4s"}</span>
                                   </>
                                 )}
                               </span>
                             </div>
-                            <span className="text-[10px] font-mono text-zinc-500 hover:text-zinc-300">
-                              {expandedThoughts[index] ? "Hide thought ▲" : "Show thought ▼"}
-                            </span>
+                            <div className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-300">
+                              <span>{expandedThoughts[index] ? "Hide" : "Show"}</span>
+                              {expandedThoughts[index] ? (
+                                <IconChevronUp className="w-3.5 h-3.5" />
+                              ) : (
+                                <IconChevronDown className="w-3.5 h-3.5" />
+                              )}
+                            </div>
                           </button>
 
                           {expandedThoughts[index] && (
                             <div className="p-3 border-t border-[#181824] bg-[#07070b] space-y-2 text-[11px] font-mono">
                               {THINKING_STAGES.map((stg, sIdx) => (
                                 <div key={sIdx} className="flex items-start gap-2 text-zinc-400">
-                                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                                  <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                                   <div>
-                                    <span className="text-zinc-200 font-semibold">{stg.title}:</span>{" "}
+                                    <span className="text-zinc-200 font-medium">{stg.title}:</span>{" "}
                                     <span className="text-zinc-400">{stg.desc}</span>
                                   </div>
                                 </div>
@@ -1434,7 +1440,7 @@ export default function UserDashboard() {
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                             </span>
-                            <span className="font-semibold text-zinc-300">Synthesizing & writing response in real-time...</span>
+                            <span className="font-medium text-zinc-300">Synthesizing & writing response in real-time...</span>
                           </div>
                         )}
                         <span className="text-zinc-100">{msg.content}</span>
@@ -1443,90 +1449,54 @@ export default function UserDashboard() {
                         )}
                       </div>
                     ) : loading && index === messages.length - 1 ? (
-                      /* HIGH-TECH MULTI-STAGE THINKING & ANALYZING SPINNER CARD WITH APP LOGO */
-                      <div className="p-3.5 sm:p-5 rounded-2xl bg-[#09090f] border border-[#1f1f2e] space-y-3 sm:space-y-4 shadow-2xl overflow-hidden shimmer-sweep">
-                        {/* TOP SPINNER & STAGE HEADER */}
-                        <div className="flex items-start gap-3 sm:gap-4">
-                          {/* DUAL GLOWING ROTATING SPINNER WHEEL WITH APP LOGO IN CENTER */}
-                          <div className="relative w-10 h-10 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center">
-                            {/* Outer spinning conic-gradient glowing ring */}
+                      /* EXECUTIVE CHATGPT-STYLE THINKING & ANALYZING LOADER WITH APP LOGO */
+                      <div className="p-3.5 sm:p-4 rounded-2xl bg-[#0a0a10] border border-[#1e1e2c] shadow-xl overflow-hidden relative">
+                        <div className="flex items-center gap-3 sm:gap-3.5">
+                          {/* ROTATING APP LOGO SPINNER */}
+                          <div className="relative w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center">
                             <div className="logo-spinner-ring" />
-                            {/* Inner reverse spinning accent ring */}
-                            <div className="absolute inset-0.5 rounded-full border-2 border-transparent border-t-emerald-300 border-b-cyan-300 animate-spin-reverse-slow opacity-80" />
-                            {/* Center glowing App Logo badge */}
-                            <div className="relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-[#0a0a10] border border-[#1e1e2c] p-0.5 sm:p-1 flex items-center justify-center z-10 shadow-inner">
+                            <div className="relative h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-[#0a0a10] border border-[#1e1e2c] p-0.5 flex items-center justify-center z-10 shadow-inner">
                               <img
                                 src="/logo.png"
                                 alt="IP-SAKTI Logo"
-                                className="w-full h-full object-contain rounded-full animate-pulse-soft"
+                                className="w-full h-full object-contain rounded-full"
                               />
                             </div>
                           </div>
 
-                          {/* STAGE TITLE & DETAILS */}
+                          {/* CLEAN TYPOGRAPHY & LIVE STEP */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-between">
-                              <div className="flex items-center gap-1.5 sm:gap-2">
-                                <span className="text-xs sm:text-sm font-semibold text-white tracking-wide flex items-center gap-1 sm:gap-1.5">
-                                  <span>Thinking & Analyzing</span>
+                            <div className="flex items-center gap-2 flex-wrap justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs sm:text-sm font-medium text-white tracking-tight flex items-center gap-1.5">
+                                  <span>Thinking</span>
                                   <span className="inline-flex gap-1 items-center">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                                    <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                                    <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" style={{ animationDelay: "200ms" }} />
+                                    <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" style={{ animationDelay: "400ms" }} />
                                   </span>
                                 </span>
-                                <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
+                                <span className="text-[10px] font-mono text-zinc-400">
                                   {thinkingSeconds.toFixed(1)}s
                                 </span>
                               </div>
-                              <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-[#161622] text-zinc-400 border border-[#262638]">
+                              <span className="text-[10px] font-mono text-zinc-400 bg-[#12121c] px-2 py-0.5 rounded border border-[#222232]">
                                 {THINKING_STAGES[thinkingStep]?.badge || "Processing"}
                               </span>
                             </div>
-                            <p className="text-xs text-zinc-200 font-medium mt-1 truncate">
-                              {THINKING_STAGES[thinkingStep]?.title}
-                            </p>
-                            <p className="text-[10px] sm:text-[11px] text-zinc-400 font-mono mt-0.5 leading-snug line-clamp-2">
+
+                            <p className="text-xs text-zinc-300 font-mono mt-0.5 truncate">
                               {THINKING_STAGES[thinkingStep]?.desc}
                             </p>
                           </div>
                         </div>
 
-                        {/* PROGRESS PIPELINE STEPS */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 border-t border-[#181824]">
-                          {THINKING_STAGES.map((stg, sIdx) => {
-                            const isPast = sIdx < thinkingStep;
-                            const isCurrent = sIdx === thinkingStep;
-                            return (
-                              <div
-                                key={sIdx}
-                                className={`p-2 sm:p-2.5 rounded-xl border text-[9px] sm:text-[10px] font-mono transition flex flex-col justify-between gap-1 min-w-0 overflow-hidden ${
-                                  isCurrent
-                                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30"
-                                    : isPast
-                                    ? "bg-[#11111a] border-[#222230] text-zinc-300"
-                                    : "bg-[#0b0b10] border-[#161620] text-zinc-600 opacity-60"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs">{stg.icon}</span>
-                                  {isPast ? (
-                                    <span className="text-emerald-400 font-bold text-xs">✓</span>
-                                  ) : isCurrent ? (
-                                    <span className="relative flex h-2 w-2">
-                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-                                    </span>
-                                  ) : (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-                                  )}
-                                </div>
-                                <span className="truncate block font-semibold text-[9px] sm:text-[10px] text-zinc-200">
-                                  {stg.title}
-                                </span>
-                              </div>
-                            );
-                          })}
+                        {/* SUBTLE LINEAR PROGRESS SHIMMER */}
+                        <div className="mt-3 h-[2px] w-full bg-[#161622] rounded-full overflow-hidden relative">
+                          <div
+                            className="h-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-indigo-500 transition-all duration-500 rounded-full"
+                            style={{ width: `${((thinkingStep + 1) / THINKING_STAGES.length) * 100}%` }}
+                          />
                         </div>
                       </div>
                     ) : (
@@ -1607,7 +1577,8 @@ export default function UserDashboard() {
                     <div className="mt-3.5 pt-2.5 sm:mt-4 sm:pt-3 border-t border-[#1c1c26] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[10px] sm:text-[11px] text-zinc-500 font-mono">
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                         <span className="text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded font-semibold flex items-center gap-1 text-[9px] sm:text-[10px]">
-                          ⚡ {msg.tokens?.isCached ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s (Cache)` : msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s` : "0.85s"}
+                          <IconZap className="w-3 h-3 text-cyan-400 shrink-0" />
+                          <span>{msg.tokens?.isCached ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s (Cache)` : msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s` : "0.85s"}</span>
                         </span>
                         <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] sm:text-[10px]">
                           Grounding: {msg.accuracyScore ?? 98.4}%
