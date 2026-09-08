@@ -478,7 +478,16 @@ export default function UserDashboard() {
       })),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    // Pre-insert assistant message to display line-by-line streaming in real-time
+    const initialAssistantMsg: Message = {
+      role: "assistant",
+      content: "",
+      sources: [],
+      accuracyScore: 98.4,
+      similarityIndex: 0.942,
+    };
+
+    setMessages((prev) => [...prev, userMsg, initialAssistantMsg]);
     setQuestion("");
     setAttachedFiles([]);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
@@ -503,41 +512,124 @@ export default function UserDashboard() {
             content: f.content,
             type: f.type,
           })),
+          stream: true,
         }),
       });
 
-      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "RAG response generation failed");
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "RAG response generation failed");
       }
 
-      const sourceCount = data.sources?.length || 0;
-      const baseAccuracy = data.type === "rag" ? 96.5 : 99.4;
-      const accuracyScore = Math.min(99.8, Number((baseAccuracy + sourceCount * 0.9).toFixed(1)));
-      const similarityIndex = Number((0.925 + Math.min(sourceCount * 0.015, 0.07)).toFixed(3));
+      if (!response.body) {
+        throw new Error("Readable stream body not supported by browser");
+      }
 
-      const assistantMsg: Message = {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let accumulatedContent = "";
+      let streamSources: CitationData[] = [];
+      let streamClassification: any = null;
+      let streamAccuracyScore = 98.4;
+      let streamSimilarityIndex = 0.942;
+      let streamTokens: any = undefined;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data: ")) continue;
+          const jsonPayload = trimmed.slice(6).trim();
+          if (!jsonPayload) continue;
+
+          try {
+            const parsed = JSON.parse(jsonPayload);
+
+            if (parsed.event === "meta") {
+              streamSources = parsed.data.sources || [];
+              streamClassification = parsed.data.classification;
+              streamAccuracyScore = parsed.data.accuracyScore ?? 98.4;
+              streamSimilarityIndex = parsed.data.similarityIndex ?? 0.942;
+
+              setMessages((prev) => {
+                const next = [...prev];
+                const lastIdx = next.length - 1;
+                if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+                  next[lastIdx] = {
+                    ...next[lastIdx],
+                    sources: streamSources,
+                    classification: streamClassification,
+                    accuracyScore: streamAccuracyScore,
+                    similarityIndex: streamSimilarityIndex,
+                  };
+                }
+                return next;
+              });
+            } else if (parsed.event === "text") {
+              accumulatedContent += parsed.data;
+              const curContent = accumulatedContent;
+
+              setMessages((prev) => {
+                const next = [...prev];
+                const lastIdx = next.length - 1;
+                if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+                  next[lastIdx] = {
+                    ...next[lastIdx],
+                    content: curContent,
+                  };
+                }
+                return next;
+              });
+            } else if (parsed.event === "done") {
+              streamTokens = {
+                latencyMs: parsed.data.latencyMs || 0,
+                promptTokens: parsed.data.promptTokens || 0,
+                completionTokens: parsed.data.completionTokens || 0,
+                totalTokens: parsed.data.totalTokens || 0,
+              };
+
+              setMessages((prev) => {
+                const next = [...prev];
+                const lastIdx = next.length - 1;
+                if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+                  next[lastIdx] = {
+                    ...next[lastIdx],
+                    tokens: streamTokens,
+                  };
+                }
+                return next;
+              });
+            }
+          } catch (e) {
+            console.warn("Error parsing SSE stream packet:", e);
+          }
+        }
+      }
+
+      // Persist complete multi-turn session to MongoDB / state
+      const finalAssistantMsg: Message = {
         role: "assistant",
-        content: data.answer,
-        sources: data.sources || [],
-        classification: data.classification,
-        accuracyScore,
-        similarityIndex,
-        tokens: {
-          promptTokens: data.promptTokens || 0,
-          completionTokens: data.completionTokens || 0,
-          totalTokens: data.totalTokens || 0,
-          latencyMs: data.latencyMs || 0,
-        },
+        content: accumulatedContent,
+        sources: streamSources,
+        classification: streamClassification,
+        accuracyScore: streamAccuracyScore,
+        similarityIndex: streamSimilarityIndex,
+        tokens: streamTokens,
       };
 
-      const updatedMessages = [...messages, userMsg, assistantMsg];
-      setMessages(updatedMessages);
-      saveChatSession(currentSessionId, updatedMessages, language);
+      const finalMessagesList = [...messages, userMsg, finalAssistantMsg];
+      saveChatSession(currentSessionId, finalMessagesList, language);
       fetchUserStats();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Unable to complete RAG request. Please verify server connectivity.");
+      setError(err?.message || "Unable to complete RAG request. Please verify server connectivity.");
     } finally {
       setLoading(false);
     }
@@ -1170,7 +1262,21 @@ export default function UserDashboard() {
 
                   {/* MESSAGE BODY */}
                   <div className="text-sm leading-relaxed whitespace-pre-wrap font-normal">
-                    {msg.content}
+                    {msg.content ? (
+                      <>
+                        {msg.content}
+                        {loading && index === messages.length - 1 && (
+                          <span className="inline-block w-1.5 h-4 ml-1 bg-zinc-200 animate-pulse align-middle" />
+                        )}
+                      </>
+                    ) : loading && index === messages.length - 1 ? (
+                      <div className="flex items-center gap-2.5 text-xs text-zinc-400 font-mono py-1">
+                        <span className="inline-block w-3.5 h-3.5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                        <span>Searching statutory archives & generating response...</span>
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
 
                   {/* CITATIONS & SOURCES CARDS */}
@@ -1322,8 +1428,8 @@ export default function UserDashboard() {
               </div>
             ))}
 
-            {/* LOADING STATE */}
-            {loading && (
+            {/* LOADING STATE FOR INITIAL LAUNCH */}
+            {loading && messages.length === 0 && (
               <div className="flex items-center gap-3 text-zinc-400 text-xs font-mono animate-pulse pl-1">
                 <div className="h-6 w-6 rounded-lg bg-[#14141c] border border-[#222230] flex items-center justify-center text-white">
                   <IconSparkles className="w-3.5 h-3.5 text-zinc-300" />

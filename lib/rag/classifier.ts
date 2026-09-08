@@ -1,5 +1,3 @@
-import { askGemini } from "@/lib/gemini";
-
 export type QuestionClassification = {
   jurisdiction: string;
   ipType: string;
@@ -8,131 +6,80 @@ export type QuestionClassification = {
   language: string;
 };
 
-export async function classifyQuestion(
+export function classifyQuestion(
   question: string
-): Promise<QuestionClassification> {
+): QuestionClassification {
+  const q = (question || "").toLowerCase().trim();
 
-  const prompt = `
-You are the classification engine for IP-SAKTI Sahayak.
-
-Classify the user's question for Intellectual Property
-and Ayurveda regulatory retrieval.
-
-Return ONLY valid JSON.
-Do NOT use markdown.
-Do NOT add explanations.
-Do NOT add extra fields.
-
-Use exactly this structure:
-
-{
-  "jurisdiction": "",
-  "ipType": "",
-  "productType": "",
-  "purpose": "",
-  "language": ""
-}
-
-Allowed values:
-
-jurisdiction:
-"India"
-"International"
-"USA"
-"EU"
-"Unknown"
-
-ipType:
-"Patent"
-"Trademark"
-"Copyright"
-"GI"
-"Design"
-"Plant Variety"
-"Trade Secret"
-"ABS"
-"Regulatory"
-"Multiple"
-"Unknown"
-
-productType:
-"Ayurvedic Formulation"
-"Ayurvedic Medicine"
-"Food"
-"Cosmetic"
-"Plant"
-"Herbal Product"
-"Research"
-"Unknown"
-
-purpose:
-"Patent Protection"
-"Trademark Protection"
-"GI Protection"
-"Regulatory Compliance"
-"Prior Art Search"
-"ABS Compliance"
-"General Information"
-"Unknown"
-
-language:
-"English"
-"Hindi"
-"Telugu"
-"Other"
-
-Rules:
-
-1. Infer the values from the user's question when possible.
-
-2. If the question does not provide enough information,
-use "Unknown".
-
-3. Do not invent information.
-
-4. For an Ayurvedic formulation or medicine question,
-select the appropriate Ayurveda product type.
-
-5. If the question is about patent protection,
-use "Patent" and "Patent Protection".
-
-6. If the question is about trademark protection,
-use "Trademark" and "Trademark Protection".
-
-7. If the question concerns multiple IP areas,
-use "Multiple".
-
-USER QUESTION:
-${question}
-`;
-
-  const raw = await askGemini(prompt);
-
-  const defaultClassification: QuestionClassification = {
-    jurisdiction: "India",
-    ipType: "Patent",
-    productType: "Ayurvedic Formulation",
-    purpose: "Patent Protection",
-    language: "Other",
-  };
-
-  try {
-    const rawStr = String(raw || "");
-    // Extract JSON substring between { and }
-    const jsonMatch = rawStr.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        jurisdiction: parsed.jurisdiction || "India",
-        ipType: parsed.ipType || "Patent",
-        productType: parsed.productType || "Ayurvedic Formulation",
-        purpose: parsed.purpose || "Patent Protection",
-        language: parsed.language || "English",
-      };
-    }
-    return defaultClassification;
-  } catch (error) {
-    console.warn("Classifier JSON parse fallback applied:", error);
-    return defaultClassification;
+  let jurisdiction = "India";
+  if (q.includes("uspto") || q.includes("united states") || q.includes("usa") || q.includes("america")) {
+    jurisdiction = "USA";
+  } else if (q.includes("epo") || q.includes("europe") || q.includes("european")) {
+    jurisdiction = "EU";
+  } else if (q.includes("wipo") || q.includes("pct") || q.includes("international")) {
+    jurisdiction = "International";
   }
+
+  let ipType = "Patent";
+  if (q.includes("trademark") || q.includes("brand") || q.includes("logo") || q.includes("mark")) {
+    ipType = "Trademark";
+  } else if (
+    q.includes("geographical indication") ||
+    q.includes("gi tag") ||
+    q.includes("gi registration") ||
+    q.includes("geographical")
+  ) {
+    ipType = "GI";
+  } else if (q.includes("copyright") || q.includes("literary") || q.includes("software code")) {
+    ipType = "Copyright";
+  } else if (
+    q.includes("trade secret") ||
+    q.includes("confidential") ||
+    q.includes("nda") ||
+    q.includes("non-disclosure")
+  ) {
+    ipType = "Trade Secret";
+  } else if (
+    q.includes("tkdl") ||
+    q.includes("traditional knowledge") ||
+    q.includes("ayurved") ||
+    q.includes("charaka") ||
+    q.includes("sushruta")
+  ) {
+    ipType = "Traditional Knowledge";
+  } else if (q.includes("design") || q.includes("industrial design")) {
+    ipType = "Design";
+  } else if (q.includes("plant") || q.includes("variety") || q.includes("crop")) {
+    ipType = "Plant Variety";
+  }
+
+  let productType = "Ayurvedic Formulation";
+  if (q.includes("medicine") || q.includes("drug") || q.includes("pharma") || q.includes("tablet") || q.includes("syrup")) {
+    productType = "Ayurvedic Medicine";
+  } else if (q.includes("food") || q.includes("diet") || q.includes("nutraceutical") || q.includes("tea")) {
+    productType = "Food";
+  } else if (q.includes("cosmetic") || q.includes("cream") || q.includes("oil") || q.includes("hair") || q.includes("skin")) {
+    productType = "Cosmetic";
+  } else if (q.includes("plant") || q.includes("herb") || q.includes("extract")) {
+    productType = "Plant";
+  }
+
+  let purpose = "Patent Protection";
+  if (q.includes("prior art") || q.includes("novelty") || q.includes("anticipation") || q.includes("search")) {
+    purpose = "Prior Art Search";
+  } else if (q.includes("licens") || q.includes("ayush") || q.includes("compliance") || q.includes("regulatory") || q.includes("gmp")) {
+    purpose = "Regulatory Compliance";
+  } else if (q.includes("abs") || q.includes("biodiversity") || q.includes("nba")) {
+    purpose = "ABS Compliance";
+  } else if (q.includes("infring") || q.includes("litigat") || q.includes("lawsuit") || q.includes("court")) {
+    purpose = "Infringement & Litigation";
+  }
+
+  return {
+    jurisdiction,
+    ipType,
+    productType,
+    purpose,
+    language: "English",
+  };
 }
