@@ -76,6 +76,17 @@ export default function UserDashboard() {
   const [fileLoading, setFileLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ChatGPT-Style Multi-Turn Session State
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() =>
+    typeof window !== "undefined"
+      ? `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+      : "session-init"
+  );
+  const [chatSessions, setChatSessions] = useState<
+    { id: string; title: string; updatedAt: string; language?: string }[]
+  >([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
   // Citation modal state
   const [selectedCitation, setSelectedCitation] = useState<CitationData | null>(null);
   const [citationModalOpen, setCitationModalOpen] = useState(false);
@@ -244,7 +255,109 @@ export default function UserDashboard() {
   useEffect(() => {
     loadSession();
     fetchUserStats();
+    fetchChatSessions();
   }, []);
+
+  async function fetchChatSessions() {
+    try {
+      setSessionsLoading(true);
+      const res = await fetch("/api/chats");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.sessions)) {
+          setChatSessions(data.sessions);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch chat sessions:", err);
+    } finally {
+      setSessionsLoading(false);
+    }
+  }
+
+  async function loadChatSession(sessionId: string) {
+    if (sessionId === currentSessionId && messages.length > 0) return;
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/chats?id=${encodeURIComponent(sessionId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.session) {
+          setCurrentSessionId(data.session.id);
+          setMessages(data.session.messages || []);
+          if (data.session.language) setLanguage(data.session.language);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load session:", err);
+    } finally {
+      setLoading(false);
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        setSidebarOpen(false);
+      }
+    }
+  }
+
+  async function saveChatSession(sessionId: string, updatedMessages: Message[], lang: string) {
+    if (updatedMessages.length === 0) return;
+    const firstUserMsg = updatedMessages.find((m) => m.role === "user");
+    const inferredTitle = firstUserMsg?.content?.slice(0, 42) || "IP Consultation";
+
+    try {
+      await fetch("/api/chats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: sessionId,
+          title: inferredTitle,
+          messages: updatedMessages,
+          language: lang,
+        }),
+      });
+      fetchChatSessions();
+    } catch (err) {
+      console.warn("Failed to save chat session:", err);
+    }
+  }
+
+  async function deleteChatSession(e: React.MouseEvent, sessionId: string) {
+    e.stopPropagation();
+    try {
+      setChatSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (currentSessionId === sessionId) {
+        startNewChat();
+      }
+      await fetch(`/api/chats?id=${encodeURIComponent(sessionId)}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.error("Failed to delete chat session:", err);
+    }
+  }
+
+  function getGroupedSessions() {
+    const now = new Date().getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const sevenDays = 7 * oneDay;
+
+    const today: { id: string; title: string; updatedAt: string; language?: string }[] = [];
+    const pastWeek: { id: string; title: string; updatedAt: string; language?: string }[] = [];
+    const older: { id: string; title: string; updatedAt: string; language?: string }[] = [];
+
+    chatSessions.forEach((session) => {
+      const sessionTime = new Date(session.updatedAt || Date.now()).getTime();
+      const diff = now - sessionTime;
+      if (diff < oneDay) {
+        today.push(session);
+      } else if (diff < sevenDays) {
+        pastWeek.push(session);
+      } else {
+        older.push(session);
+      }
+    });
+
+    return { today, pastWeek, older };
+  }
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -370,8 +483,8 @@ export default function UserDashboard() {
     setAttachedFiles([]);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
-    // Build short-term memory history
-    const chatHistory = messages.slice(-6).map((m) => ({
+    // Build multi-turn memory history from previous turns in this session
+    const chatHistory = messages.slice(-10).map((m) => ({
       role: m.role,
       content: m.content,
     }));
@@ -381,6 +494,7 @@ export default function UserDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          sessionId: currentSessionId,
           question: queryText,
           language,
           chatHistory,
@@ -417,7 +531,9 @@ export default function UserDashboard() {
         },
       };
 
-      setMessages((prev) => [...prev, assistantMsg]);
+      const updatedMessages = [...messages, userMsg, assistantMsg];
+      setMessages(updatedMessages);
+      saveChatSession(currentSessionId, updatedMessages, language);
       fetchUserStats();
     } catch (err) {
       console.error(err);
@@ -474,10 +590,14 @@ export default function UserDashboard() {
   }
 
   function startNewChat() {
+    setCurrentSessionId(`session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
     setMessages([]);
     setAttachedFiles([]);
     setQuestion("");
     setError("");
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
   }
 
   const isAdmin =
@@ -643,42 +763,159 @@ export default function UserDashboard() {
           </button>
         </div>
 
-        {/* SIDEBAR QUERY HISTORY */}
+        {/* SIDEBAR QUERY & SESSION HISTORY (ChatGPT-Style Multi-Turn Sessions) */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
           <div>
-            <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono mb-2">
-              Recent Inquiries
-            </p>
-            {userStats?.recentLogs?.length ? (
-              <div className="space-y-1">
-                {userStats.recentLogs.slice(0, 15).map((log: any, idx: number) => (
-                  <div
-                    key={log.id || idx}
-                    className="group flex items-center justify-between w-full rounded-lg hover:bg-[#15151c] pr-1.5 transition"
-                  >
-                    <button
-                      onClick={() => askAI(log.question)}
-                      className="flex-1 text-left px-2.5 py-1.5 text-xs text-zinc-300 group-hover:text-white truncate block min-w-0"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-1.5 w-1.5 rounded-full bg-zinc-600 group-hover:bg-zinc-300 shrink-0" />
-                        <span className="truncate text-[11px]">{log.question}</span>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => deleteInquiryLog(e, log.id)}
-                      title="Delete from history"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 rounded hover:bg-[#1f1f2a] transition shrink-0"
-                    >
-                      <IconTrash className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+            <div className="flex items-center justify-between px-2 mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono">
+                Consultation History
+              </p>
+              {sessionsLoading && (
+                <span className="text-[9px] text-zinc-500 font-mono animate-pulse">Syncing...</span>
+              )}
+            </div>
+
+            {chatSessions.length > 0 ? (
+              <div className="space-y-3">
+                {(() => {
+                  const { today, pastWeek, older } = getGroupedSessions();
+                  return (
+                    <>
+                      {today.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="px-2 text-[9px] font-mono text-zinc-500 uppercase tracking-wider block">
+                            Today
+                          </span>
+                          {today.map((s) => {
+                            const isActive = s.id === currentSessionId;
+                            return (
+                              <div
+                                key={s.id}
+                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${
+                                  isActive
+                                    ? "bg-[#181824] border border-[#2c2c3e] text-white"
+                                    : "hover:bg-[#15151c] text-zinc-300"
+                                }`}
+                              >
+                                <button
+                                  onClick={() => loadChatSession(s.id)}
+                                  className="flex-1 text-left px-2.5 py-1.5 text-xs truncate block min-w-0"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                        isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
+                                      }`}
+                                    />
+                                    <span className="truncate text-[11px] font-medium">{s.title}</span>
+                                  </div>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => deleteChatSession(e, s.id)}
+                                  title="Delete session"
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 rounded hover:bg-[#1f1f2a] transition shrink-0"
+                                >
+                                  <IconTrash className="w-3 h-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {pastWeek.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="px-2 text-[9px] font-mono text-zinc-500 uppercase tracking-wider block">
+                            Previous 7 Days
+                          </span>
+                          {pastWeek.map((s) => {
+                            const isActive = s.id === currentSessionId;
+                            return (
+                              <div
+                                key={s.id}
+                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${
+                                  isActive
+                                    ? "bg-[#181824] border border-[#2c2c3e] text-white"
+                                    : "hover:bg-[#15151c] text-zinc-300"
+                                }`}
+                              >
+                                <button
+                                  onClick={() => loadChatSession(s.id)}
+                                  className="flex-1 text-left px-2.5 py-1.5 text-xs truncate block min-w-0"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                        isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
+                                      }`}
+                                    />
+                                    <span className="truncate text-[11px] font-medium">{s.title}</span>
+                                  </div>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => deleteChatSession(e, s.id)}
+                                  title="Delete session"
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 rounded hover:bg-[#1f1f2a] transition shrink-0"
+                                >
+                                  <IconTrash className="w-3 h-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {older.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="px-2 text-[9px] font-mono text-zinc-500 uppercase tracking-wider block">
+                            Older Consultations
+                          </span>
+                          {older.map((s) => {
+                            const isActive = s.id === currentSessionId;
+                            return (
+                              <div
+                                key={s.id}
+                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${
+                                  isActive
+                                    ? "bg-[#181824] border border-[#2c2c3e] text-white"
+                                    : "hover:bg-[#15151c] text-zinc-300"
+                                }`}
+                              >
+                                <button
+                                  onClick={() => loadChatSession(s.id)}
+                                  className="flex-1 text-left px-2.5 py-1.5 text-xs truncate block min-w-0"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                        isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
+                                      }`}
+                                    />
+                                    <span className="truncate text-[11px] font-medium">{s.title}</span>
+                                  </div>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => deleteChatSession(e, s.id)}
+                                  title="Delete session"
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 rounded hover:bg-[#1f1f2a] transition shrink-0"
+                                >
+                                  <IconTrash className="w-3 h-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             ) : (
               <p className="px-2 text-xs text-zinc-600 font-mono text-[11px]">
-                No recent inquiries.
+                No saved consultations yet. Ask a question to begin.
               </p>
             )}
           </div>
