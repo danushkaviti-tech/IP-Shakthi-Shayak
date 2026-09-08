@@ -58,6 +58,7 @@ interface Message {
     completionTokens: number;
     totalTokens: number;
     latencyMs: number;
+    isCached?: boolean;
   };
 }
 
@@ -608,6 +609,7 @@ export default function UserDashboard() {
                 promptTokens: parsed.data.promptTokens || 0,
                 completionTokens: parsed.data.completionTokens || 0,
                 totalTokens: parsed.data.totalTokens || 0,
+                isCached: parsed.data.isCached,
               };
 
               setMessages((prev) => {
@@ -1372,7 +1374,7 @@ export default function UserDashboard() {
                     <div className="mt-4 pt-3 border-t border-[#1c1c26] flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 font-mono">
                       <div className="flex items-center gap-2.5 flex-wrap">
                         <span className="text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
-                          ⚡ {msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s calculation time` : "0.85s calculation time"}
+                          ⚡ {msg.tokens?.isCached ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s (Redis Cache Hit)` : msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s calculation time` : "0.85s calculation time"}
                         </span>
                         <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
                           Grounding: {msg.accuracyScore ?? 98.4}%
