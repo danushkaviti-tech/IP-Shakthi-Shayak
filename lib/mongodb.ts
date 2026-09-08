@@ -1,32 +1,68 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, MongoClientOptions, Db } from "mongodb";
 
-const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/ip-sakti";
+const uri =
+  process.env.MONGODB_URI ||
+  "mongodb+srv://danushkaviti:danush12345@cluster0.uw1ad1q.mongodb.net/ip-sakti?retryWrites=true&w=majority";
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
+const options: MongoClientOptions = {
+  maxPoolSize: 10,
+  minPoolSize: 0,
+  maxIdleTimeMS: 30000,
+  serverSelectionTimeoutMS: 10000,
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+};
 
-if (process.env.NODE_ENV === "development") {
-  // In development mode, use a global variable so that the value
-  // is preserved across module reloads caused by HMR (Hot Module Replacement).
-  let globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>;
-  };
+let globalWithMongo = global as typeof globalThis & {
+  _mongoClientPromise?: Promise<MongoClient>;
+  _mongoClient?: MongoClient;
+};
 
-  if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri);
-    globalWithMongo._mongoClientPromise = client.connect().catch((err) => {
-      console.warn("MongoDB connection fallback warning:", err?.message || err);
+export async function connectToMongo(): Promise<MongoClient> {
+  if (globalWithMongo._mongoClientPromise) {
+    try {
+      const client = await globalWithMongo._mongoClientPromise;
+      // Quick ping to check topology health
+      await client.db("admin").command({ ping: 1 });
       return client;
-    });
+    } catch {
+      // Invalidate dead or closed topology
+      globalWithMongo._mongoClientPromise = undefined;
+      globalWithMongo._mongoClient = undefined;
+    }
   }
-  clientPromise = globalWithMongo._mongoClientPromise;
-} else {
-  // In production mode, it's best to not use a global variable.
-  client = new MongoClient(uri);
-  clientPromise = client.connect().catch((err) => {
-    console.warn("MongoDB connection warning in production:", err?.message || err);
-    return client;
-  });
+
+  const client = new MongoClient(uri, options);
+  globalWithMongo._mongoClient = client;
+  globalWithMongo._mongoClientPromise = client.connect();
+
+  try {
+    const connectedClient = await globalWithMongo._mongoClientPromise;
+    return connectedClient;
+  } catch (err) {
+    globalWithMongo._mongoClientPromise = undefined;
+    globalWithMongo._mongoClient = undefined;
+    throw err;
+  }
+}
+
+// Proxied Promise for full backward-compatibility with `await clientPromise`
+const clientPromise: Promise<MongoClient> = {
+  then(onfulfilled, onrejected) {
+    return connectToMongo().then(onfulfilled, onrejected);
+  },
+  catch(onrejected) {
+    return connectToMongo().catch(onrejected);
+  },
+  finally(onfinally) {
+    return connectToMongo().finally(onfinally);
+  },
+  [Symbol.toStringTag]: "Promise",
+} as Promise<MongoClient>;
+
+export async function getDatabase(dbName = "ip-sakti"): Promise<Db> {
+  const client = await connectToMongo();
+  return client.db(dbName);
 }
 
 export default clientPromise;
