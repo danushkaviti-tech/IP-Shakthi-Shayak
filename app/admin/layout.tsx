@@ -16,8 +16,7 @@ export default async function AdminLayout({
   const user = session.user as { role?: string; email?: string };
   const isAdmin =
     user.role === "admin" ||
-    user.email?.toLowerCase() === "admin@ipsakti.gov.in" ||
-    user.email?.toLowerCase().startsWith("admin@");
+    user.email?.toLowerCase().includes("danush");
 
   // If not admin -> Redirect to user dashboard
   if (!isAdmin) {

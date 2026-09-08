@@ -35,14 +35,14 @@ export default function LoginPage() {
       });
 
       if (!result || result.error) {
-        setError("Invalid email or password. Please verify credentials.");
+        setError("Invalid credentials. Please verify your username/email and password.");
         setLoading(false);
         return;
       }
 
       const isAdmin =
-        userEmail.toLowerCase() === "admin@ipsakti.gov.in" ||
-        userEmail.toLowerCase().startsWith("admin@");
+        userEmail.toLowerCase().includes("danush") ||
+        userEmail.toLowerCase() === "danush@ipsakti.gov.in";
 
       if (isAdmin) {
         window.location.href = "/admin/analytics";
@@ -63,9 +63,9 @@ export default function LoginPage() {
   }
 
   function handleDemoAdmin() {
-    setEmail("admin@ipsakti.gov.in");
-    setPassword("admin123");
-    executeLogin("admin@ipsakti.gov.in", "admin123");
+    setEmail("danush@ipsakti.gov.in");
+    setPassword("danush123");
+    executeLogin("danush@ipsakti.gov.in", "danush123");
   }
 
   return (
@@ -116,12 +116,12 @@ export default function LoginPage() {
                 <div className="flex items-center justify-between w-full">
                   <span className="text-xs font-semibold text-white flex items-center gap-1">
                     <IconShield className="w-3 h-3 text-zinc-300" />
-                    <span>Admin</span>
+                    <span>Danush</span>
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-mono">Control</span>
+                  <span className="text-[10px] text-zinc-500 font-mono">Admin</span>
                 </div>
                 <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate">
-                  admin@ipsakti.gov.in
+                  danush@ipsakti.gov.in
                 </span>
               </button>
             </div>
@@ -138,14 +138,14 @@ export default function LoginPage() {
           {/* CREDENTIALS FORM */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-zinc-300">Email address</label>
+              <label className="text-xs font-medium text-zinc-300">Username or Email</label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="researcher@ipsakti.gov.in"
+                placeholder="danush or researcher@ipsakti.gov.in"
                 required
-                autoComplete="email"
+                autoComplete="username"
                 className="mt-1.5 w-full rounded-xl border border-[#1e1e28] bg-[#070709] px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 transition font-sans"
               />
             </div>

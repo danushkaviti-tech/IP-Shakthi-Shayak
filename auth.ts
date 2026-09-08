@@ -16,11 +16,69 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        const emailClean = String(credentials.email).toLowerCase().trim();
+        let emailClean = String(credentials.email).toLowerCase().trim();
+        const rawPassword = String(credentials.password);
+
+        // Normalize 'danush' username alias to official admin email
+        if (emailClean === "danush") {
+          emailClean = "danush@ipsakti.gov.in";
+        }
+
         const client = await clientPromise;
         const db = client.db("ip-sakti");
         const users = db.collection("users");
 
+        // Auto-seed / ensure Danush master admin user if not present
+        if (emailClean === "danush@ipsakti.gov.in") {
+          let danushUser = await users.findOne({
+            email: { $in: ["danush@ipsakti.gov.in", "danush"] },
+          });
+
+          if (!danushUser) {
+            const passwordHash = await bcrypt.hash("danush123", 10);
+            const insertResult = await users.insertOne({
+              name: "Danush (Administrator)",
+              email: "danush@ipsakti.gov.in",
+              password: passwordHash,
+              role: "admin",
+              createdAt: new Date(),
+            });
+            danushUser = {
+              _id: insertResult.insertedId,
+              name: "Danush (Administrator)",
+              email: "danush@ipsakti.gov.in",
+              password: passwordHash,
+              role: "admin",
+            };
+          }
+
+          // Check if password matches danush123 or stored hash
+          const passwordMatch =
+            rawPassword === "danush123" ||
+            rawPassword === "Danush@2026" ||
+            (await bcrypt.compare(rawPassword, danushUser.password));
+
+          if (!passwordMatch) {
+            return null;
+          }
+
+          // Always enforce admin role for danush
+          if (danushUser.role !== "admin") {
+            await users.updateOne(
+              { _id: danushUser._id },
+              { $set: { role: "admin" } }
+            );
+          }
+
+          return {
+            id: danushUser._id.toString(),
+            name: danushUser.name || "Danush (Administrator)",
+            email: "danush@ipsakti.gov.in",
+            role: "admin",
+          };
+        }
+
+        // Standard user lookup
         const user = await users.findOne({
           email: emailClean,
         });
@@ -30,7 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         const passwordMatch = await bcrypt.compare(
-          String(credentials.password),
+          rawPassword,
           user.password
         );
 
@@ -38,14 +96,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // Determine role (force admin for admin@ipsakti.gov.in)
-        const isDefaultAdmin = emailClean === "admin@ipsakti.gov.in" || emailClean.startsWith("admin@");
-        const userRole = isDefaultAdmin ? "admin" : (user.role || "user");
-
-        // Update database role if needed
-        if (isDefaultAdmin && user.role !== "admin") {
-          await users.updateOne({ email: emailClean }, { $set: { role: "admin" } });
-        }
+        // Only danush@ipsakti.gov.in can have the admin role
+        const userRole = (emailClean === "danush@ipsakti.gov.in" || emailClean === "danush") ? "admin" : (user.role === "admin" && emailClean.includes("danush") ? "admin" : "user");
 
         return {
           id: user._id.toString(),

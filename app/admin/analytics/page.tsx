@@ -169,15 +169,65 @@ export default function AdminAnalyticsPage() {
     }
   }
 
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [userActionStatus, setUserActionStatus] = useState<string>("");
+
   async function fetchUsers() {
     try {
-      const res = await fetch("/api/stats?type=users");
+      const res = await fetch("/api/users");
       const result = await res.json();
       if (res.ok && result.success) {
         setUsersList(result.users || []);
+      } else {
+        // Fallback to /api/stats?type=users
+        const fallbackRes = await fetch("/api/stats?type=users");
+        const fallbackResult = await fallbackRes.json();
+        if (fallbackRes.ok && fallbackResult.success) {
+          setUsersList(fallbackResult.users || []);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch users:", err);
+    }
+  }
+
+  async function deleteUser(userId: string, userName: string, userEmail: string) {
+    const isMasterAdmin =
+      userEmail.toLowerCase().includes("danush") ||
+      userEmail.toLowerCase().startsWith("danush@");
+
+    if (isMasterAdmin) {
+      alert("Cannot delete the primary system administrator account (Danush).");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete user "${userName || userEmail}"?\n\nThis will remove their login access and purge all their inquiry telemetry and session data from MongoDB.`
+    );
+    if (!confirmed) return;
+
+    setDeletingUserId(userId);
+    setUserActionStatus(`Deleting account ${userName || userEmail}...`);
+
+    try {
+      const res = await fetch(`/api/users?id=${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+      });
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || "Failed to delete user");
+      }
+
+      setUserActionStatus(`✓ User "${userName || userEmail}" successfully deleted.`);
+      await fetchUsers();
+      await fetchAdminStats();
+    } catch (err) {
+      console.error("Delete user error:", err);
+      alert(err instanceof Error ? err.message : "Error deleting user");
+    } finally {
+      setDeletingUserId(null);
+      setTimeout(() => setUserActionStatus(""), 5000);
     }
   }
 
@@ -787,7 +837,7 @@ export default function AdminAnalyticsPage() {
               <div>
                 <h2 className="text-sm font-semibold text-white">Registered Researcher Accounts</h2>
                 <p className="text-xs text-zinc-500 mt-1">
-                  Active researchers and administrators in the MongoDB database.
+                  Active researchers and master administrator in the MongoDB database.
                 </p>
               </div>
               <button
@@ -799,47 +849,77 @@ export default function AdminAnalyticsPage() {
               </button>
             </div>
 
+            {userActionStatus && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono animate-in fade-in">
+                {userActionStatus}
+              </div>
+            )}
+
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[650px] text-left text-xs text-zinc-300">
+              <table className="w-full min-w-[700px] text-left text-xs text-zinc-300">
                 <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-[#1b1b26] font-mono">
                   <tr>
                     <th className="pb-3">Name</th>
-                    <th className="pb-3">Email</th>
+                    <th className="pb-3">Email / Username</th>
                     <th className="pb-3">Role</th>
                     <th className="pb-3">Queries Run</th>
                     <th className="pb-3">Tokens Consumed</th>
                     <th className="pb-3">Joined Date</th>
+                    <th className="pb-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#181822] font-mono">
                   {usersList.length ? (
-                    usersList.map((u) => (
-                      <tr key={u.id} className="hover:bg-[#101018]">
-                        <td className="py-3 font-medium text-white">{u.name}</td>
-                        <td className="py-3 text-zinc-300">{u.email}</td>
-                        <td className="py-3">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] ${
-                              u.role === "admin"
-                                ? "bg-white text-black font-semibold"
-                                : "bg-[#181822] text-zinc-300"
-                            }`}
-                          >
-                            {u.role.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="py-3 text-zinc-300">{u.queries || 0}</td>
-                        <td className="py-3 text-zinc-300">
-                          {(u.tokens || 0).toLocaleString()}
-                        </td>
-                        <td className="py-3 text-zinc-500">
-                          {new Date(u.createdAt).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))
+                    usersList.map((u) => {
+                      const isMasterAdmin =
+                        u.email.toLowerCase().includes("danush") ||
+                        u.role === "admin";
+                      return (
+                        <tr key={u.id} className="hover:bg-[#101018]">
+                          <td className="py-3 font-medium text-white">{u.name}</td>
+                          <td className="py-3 text-zinc-300">{u.email}</td>
+                          <td className="py-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] ${
+                                isMasterAdmin
+                                  ? "bg-white text-black font-semibold"
+                                  : "bg-[#181822] text-zinc-300"
+                              }`}
+                            >
+                              {isMasterAdmin ? "MASTER ADMIN" : u.role.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-3 text-zinc-300">{u.queries || 0}</td>
+                          <td className="py-3 text-zinc-300">
+                            {(u.tokens || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 text-zinc-500">
+                            {new Date(u.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 text-right">
+                            {isMasterAdmin ? (
+                              <span className="px-2 py-1 rounded bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px]">
+                                Protected
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => deleteUser(u.id, u.name, u.email)}
+                                disabled={deletingUserId === u.id}
+                                className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 text-[10px] inline-flex items-center gap-1 font-sans transition disabled:opacity-50 cursor-pointer"
+                                title={`Delete user account ${u.email}`}
+                              >
+                                <IconTrash className="w-3 h-3" />
+                                <span>{deletingUserId === u.id ? "Deleting..." : "Delete"}</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-zinc-500 font-sans">
+                      <td colSpan={7} className="py-6 text-center text-zinc-500 font-sans">
                         No registered users found.
                       </td>
                     </tr>

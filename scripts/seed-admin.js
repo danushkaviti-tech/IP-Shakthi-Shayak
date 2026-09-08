@@ -13,26 +13,28 @@ async function seed() {
     const usersCol = db.collection("users");
     const tokenLogsCol = db.collection("token_logs");
 
-    // Seed Admin User
-    const adminEmail = "admin@ipsakti.gov.in";
-    const existingAdmin = await usersCol.findOne({ email: adminEmail });
-    const adminPasswordHash = await bcrypt.hash("admin123", 10);
+    // Seed Danush Master Admin User
+    const adminEmail = "danush@ipsakti.gov.in";
+    const existingAdmin = await usersCol.findOne({
+      email: { $in: ["danush@ipsakti.gov.in", "danush"] },
+    });
+    const adminPasswordHash = await bcrypt.hash("danush123", 10);
 
     if (!existingAdmin) {
       await usersCol.insertOne({
-        name: "Admin Sahayak",
+        name: "Danush (Administrator)",
         email: adminEmail,
         password: adminPasswordHash,
         role: "admin",
         createdAt: new Date(),
       });
-      console.log("✓ Created Admin user:", adminEmail, "/ admin123");
+      console.log("✓ Created Master Admin user:", adminEmail, "/ danush123");
     } else {
       await usersCol.updateOne(
-        { email: adminEmail },
-        { $set: { role: "admin", password: adminPasswordHash } }
+        { _id: existingAdmin._id },
+        { $set: { role: "admin", password: adminPasswordHash, email: adminEmail } }
       );
-      console.log("✓ Updated Admin user permissions:", adminEmail);
+      console.log("✓ Updated Master Admin user permissions:", adminEmail);
     }
 
     // Seed Regular User
