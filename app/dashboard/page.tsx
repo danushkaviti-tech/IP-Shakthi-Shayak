@@ -528,12 +528,40 @@ export default function UserDashboard() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
-      let accumulatedContent = "";
+      let displayedContent = "";
+      let targetContent = "";
+      let isStreamingDone = false;
       let streamSources: CitationData[] = [];
       let streamClassification: any = null;
       let streamAccuracyScore = 98.4;
       let streamSimilarityIndex = 0.942;
       let streamTokens: any = undefined;
+
+      // Natural typewriter streaming loop (smooth line-by-line writing cadence)
+      const typewriterTick = new Promise<void>((resolve) => {
+        const timer = setInterval(() => {
+          if (displayedContent.length < targetContent.length) {
+            const diff = targetContent.length - displayedContent.length;
+            const step = diff > 150 ? 9 : diff > 50 ? 5 : diff > 12 ? 2 : 1;
+            displayedContent = targetContent.slice(0, displayedContent.length + step);
+
+            setMessages((prev) => {
+              const next = [...prev];
+              const lastIdx = next.length - 1;
+              if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+                next[lastIdx] = {
+                  ...next[lastIdx],
+                  content: displayedContent,
+                };
+              }
+              return next;
+            });
+          } else if (isStreamingDone) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, 14);
+      });
 
       while (true) {
         const { done, value } = await reader.read();
@@ -573,20 +601,7 @@ export default function UserDashboard() {
                 return next;
               });
             } else if (parsed.event === "text") {
-              accumulatedContent += parsed.data;
-              const curContent = accumulatedContent;
-
-              setMessages((prev) => {
-                const next = [...prev];
-                const lastIdx = next.length - 1;
-                if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
-                  next[lastIdx] = {
-                    ...next[lastIdx],
-                    content: curContent,
-                  };
-                }
-                return next;
-              });
+              targetContent += parsed.data;
             } else if (parsed.event === "done") {
               streamTokens = {
                 latencyMs: parsed.data.latencyMs || 0,
@@ -613,10 +628,13 @@ export default function UserDashboard() {
         }
       }
 
+      isStreamingDone = true;
+      await typewriterTick;
+
       // Persist complete multi-turn session to MongoDB / state
       const finalAssistantMsg: Message = {
         role: "assistant",
-        content: accumulatedContent,
+        content: targetContent,
         sources: streamSources,
         classification: streamClassification,
         accuracyScore: streamAccuracyScore,
@@ -1097,9 +1115,11 @@ export default function UserDashboard() {
               <span className="font-semibold text-xs tracking-tight text-white">
                 IP-SAKTI Intelligence
               </span>
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#14141c] text-emerald-400 border border-emerald-500/20">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                LangGraph StateGraph
+              <span className="hidden sm:inline-flex items-center gap-2 text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#0c1612] text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+                  <span className="beacon-light inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                </span>
+                <span className="font-semibold tracking-wide">LangGraph StateGraph</span>
               </span>
             </div>
           </div>
@@ -1266,12 +1286,12 @@ export default function UserDashboard() {
                       <>
                         {msg.content}
                         {loading && index === messages.length - 1 && (
-                          <span className="inline-block w-1.5 h-4 ml-1 bg-zinc-200 animate-pulse align-middle" />
+                          <span className="writing-cursor" />
                         )}
                       </>
                     ) : loading && index === messages.length - 1 ? (
                       <div className="flex items-center gap-2.5 text-xs text-zinc-400 font-mono py-1">
-                        <span className="inline-block w-3.5 h-3.5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                        <span className="beacon-light inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
                         <span>Searching statutory archives & generating response...</span>
                       </div>
                     ) : (
