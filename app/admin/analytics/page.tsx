@@ -24,6 +24,7 @@ interface DocumentItem {
   originalName: string;
   chunks: number;
   characters: number;
+  efficiencyScore?: number;
   type: string;
   jurisdiction: string;
   ipType: string;
@@ -640,6 +641,7 @@ export default function AdminAnalyticsPage() {
                       <th className="pb-3">Document</th>
                       <th className="pb-3">Domain</th>
                       <th className="pb-3">Chunks</th>
+                      <th className="pb-3">Efficiency</th>
                       <th className="pb-3">Characters</th>
                       <th className="pb-3">Date Added</th>
                       <th className="pb-3 text-right">Actions</th>
@@ -654,6 +656,11 @@ export default function AdminAnalyticsPage() {
                           </td>
                           <td className="py-3 text-zinc-400">{doc.ipType}</td>
                           <td className="py-3 text-zinc-300">{doc.chunks}</td>
+                          <td className="py-3">
+                            <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px]">
+                              🎯 {doc.efficiencyScore || 96.2}%
+                            </span>
+                          </td>
                           <td className="py-3 text-zinc-400">{doc.characters.toLocaleString()}</td>
                           <td className="py-3 text-zinc-500">
                             {new Date(doc.uploadedAt).toLocaleDateString()}

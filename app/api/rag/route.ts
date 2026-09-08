@@ -5,7 +5,15 @@ import { auth } from "@/auth";
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    const { question, language = "English", attachedFiles = [] } = await request.json();
+    const userEmail = session?.user?.email || "guest@ipsakti.gov.in";
+    const body = await request.json();
+    const {
+      question,
+      language = "English",
+      attachedFiles = [],
+      chatHistory = [],
+      sessionId,
+    } = body;
 
     if (!question?.trim()) {
       return Response.json(
@@ -20,13 +28,15 @@ export async function POST(request: Request) {
     const result = await generateRAGAnswer(
       question.trim(),
       language,
-      attachedFiles
+      attachedFiles,
+      chatHistory,
+      userEmail
     );
 
-    // Record token usage in MongoDB
+    // Record token usage and latency in MongoDB
     await logTokenUsage({
       userId: session?.user?.id,
-      userEmail: session?.user?.email || "guest@ipsakti.gov.in",
+      userEmail,
       role: (session?.user as any)?.role || "user",
       question: question.trim(),
       language,
@@ -41,6 +51,7 @@ export async function POST(request: Request) {
 
     return Response.json({
       success: true,
+      sessionId,
       ...result,
     });
   } catch (error) {

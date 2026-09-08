@@ -279,46 +279,48 @@ export default function VoiceAssistant({
   }
 
   return (
-    <div className="inline-flex items-center gap-1.5">
-      {/* MIC STT BUTTON */}
-      <button
-        type="button"
-        onClick={toggleListening}
-        title={isListening ? "Listening... Click to stop" : "Voice input"}
-        className={`relative flex items-center justify-center h-8 w-8 rounded-lg transition-all duration-200 ${
-          isListening
-            ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20"
-            : "bg-[#141418] hover:bg-[#1f1f26] text-zinc-300 hover:text-white border border-zinc-800"
-        }`}
-      >
-        <IconMicrophone className="w-3.5 h-3.5" />
-        {isListening && (
-          <span className="absolute -top-1 -right-1 flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-          </span>
-        )}
-      </button>
+    <div className="inline-flex items-center gap-1.5 shrink-0">
+      {/* MIC STT BUTTON (Only when not reading an existing message) */}
+      {!textToSpeak && (
+        <button
+          type="button"
+          onClick={toggleListening}
+          title={isListening ? "Listening... Click to stop" : "Voice input"}
+          className={`relative flex items-center justify-center h-7.5 w-7.5 sm:h-8 sm:w-8 rounded-lg transition-all duration-200 shrink-0 ${
+            isListening
+              ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20"
+              : "bg-[#181822] hover:bg-[#222230] text-zinc-300 hover:text-white border border-[#28283a]"
+          }`}
+        >
+          <IconMicrophone className="w-3.5 h-3.5" />
+          {isListening && (
+            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+            </span>
+          )}
+        </button>
+      )}
 
       {/* TTS PLAY/PAUSE BUTTON IF TEXT IS PROVIDED */}
       {textToSpeak && (
         <button
           type="button"
           onClick={() => speakText(textToSpeak)}
-          title={isPlaying ? "Stop audio" : "Listen to full answer in Telugu/selected language"}
-          className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium transition-all ${
+          title={isPlaying ? "Stop audio" : "Listen in Telugu/selected language"}
+          className={`flex items-center gap-1.5 h-6.5 sm:h-7 px-2 sm:px-2.5 rounded-lg text-[11px] sm:text-xs font-medium transition-all shrink-0 ${
             isPlaying
               ? "bg-white text-black font-semibold shadow-sm animate-pulse"
               : "bg-[#141418] hover:bg-[#1f1f26] text-zinc-400 hover:text-white border border-zinc-800"
           }`}
         >
-          <IconSpeaker className="w-3 h-3" />
+          <IconSpeaker className="w-3 h-3 text-current" />
           <span>{isPlaying ? "Stop" : "Listen"}</span>
         </button>
       )}
 
       {speechError && (
-        <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 font-mono">
+        <span className="text-[10px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 font-mono truncate max-w-[120px]">
           {speechError}
         </span>
       )}

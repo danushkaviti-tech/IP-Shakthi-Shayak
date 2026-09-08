@@ -25,6 +25,7 @@
     "pdf2json": "^4.0.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
     "resend": "^6.26.0"
   },
   "devDependencies": {

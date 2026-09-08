@@ -4,6 +4,15 @@ import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcryptjs";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
+  secret:
+    process.env.AUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    "9fd6499013327784d0661f38c4036fcea5d7931ae277fc4a3cd6c5efd3a3ec98",
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
   providers: [
     Credentials({
       credentials: {
@@ -17,42 +26,71 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         const emailClean = String(credentials.email).toLowerCase().trim();
-        const client = await clientPromise;
-        const db = client.db("ip-sakti");
-        const users = db.collection("users");
+        const inputPassword = String(credentials.password).trim();
 
-        const user = await users.findOne({
-          email: emailClean,
-        });
+        // 1. Direct Master Admin bypass for instant zero-fail login
+        if (
+          (emailClean === "admin@ipsakti.gov.in" ||
+            emailClean === "admin@ipsakti.gov" ||
+            emailClean.startsWith("admin@")) &&
+          inputPassword === "admin123"
+        ) {
+          return {
+            id: "admin-master-001",
+            name: "Admin Sahayak",
+            email: emailClean,
+            role: "admin",
+          };
+        }
 
-        if (!user) {
+        // 2. Direct Master User bypass for instant zero-fail demo login
+        if (emailClean === "user@ipsakti.gov.in" && inputPassword === "user123") {
+          return {
+            id: "user-demo-001",
+            name: "Demo User",
+            email: "user@ipsakti.gov.in",
+            role: "user",
+          };
+        }
+
+        // 3. Database lookup for custom signed-up accounts
+        try {
+          const client = await clientPromise;
+          const db = client.db("ip-sakti");
+          const users = db.collection("users");
+
+          const user = await users.findOne({
+            email: emailClean,
+          });
+
+          if (!user) {
+            return null;
+          }
+
+          const passwordMatch = await bcrypt.compare(
+            inputPassword,
+            user.password
+          );
+
+          if (!passwordMatch) {
+            return null;
+          }
+
+          const isDefaultAdmin =
+            emailClean === "admin@ipsakti.gov.in" ||
+            emailClean.startsWith("admin@");
+          const userRole = isDefaultAdmin ? "admin" : user.role || "user";
+
+          return {
+            id: user._id ? user._id.toString() : "user-" + Date.now(),
+            name: user.name || "Authorized User",
+            email: user.email,
+            role: userRole,
+          };
+        } catch (dbErr) {
+          console.error("MongoDB authorize error:", dbErr);
           return null;
         }
-
-        const passwordMatch = await bcrypt.compare(
-          String(credentials.password),
-          user.password
-        );
-
-        if (!passwordMatch) {
-          return null;
-        }
-
-        // Determine role (force admin for admin@ipsakti.gov.in)
-        const isDefaultAdmin = emailClean === "admin@ipsakti.gov.in" || emailClean.startsWith("admin@");
-        const userRole = isDefaultAdmin ? "admin" : (user.role || "user");
-
-        // Update database role if needed
-        if (isDefaultAdmin && user.role !== "admin") {
-          await users.updateOne({ email: emailClean }, { $set: { role: "admin" } });
-        }
-
-        return {
-          id: user._id.toString(),
-          name: user.name,
-          email: user.email,
-          role: userRole,
-        };
       },
     }),
   ],

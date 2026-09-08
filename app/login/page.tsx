@@ -85,24 +85,24 @@ export default function LoginPage() {
         </div>
 
         {/* LOGIN CARD */}
-        <div className="rounded-2xl border border-[#1e1e28] bg-[#0e0e14] p-6 sm:p-8 shadow-2xl space-y-6">
+        <div className="rounded-2xl border border-[#1e1e28] bg-[#0e0e14] p-4 sm:p-7 shadow-2xl space-y-5">
           {/* QUICK DEMO BUTTONS */}
           <div className="space-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono text-center">
               Quick One-Click Demo Access
             </p>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
               <button
                 type="button"
                 onClick={handleDemoUser}
                 disabled={loading}
-                className="p-3 rounded-xl border border-[#222230] bg-[#14141c] hover:bg-[#1a1a24] text-left transition flex flex-col justify-between group disabled:opacity-50"
+                className="p-2.5 sm:p-3 rounded-xl border border-[#222230] bg-[#14141c] hover:bg-[#1a1a24] text-left transition flex flex-col justify-between group disabled:opacity-50 active:scale-95"
               >
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-semibold text-white">Researcher</span>
-                  <span className="text-[10px] text-zinc-500 font-mono">Demo</span>
+                  <span className="text-xs font-semibold text-white truncate">Researcher</span>
+                  <span className="text-[9px] text-zinc-500 font-mono">Demo</span>
                 </div>
-                <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate">
+                <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate block w-full">
                   user@ipsakti.gov.in
                 </span>
               </button>
@@ -111,16 +111,16 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleDemoAdmin}
                 disabled={loading}
-                className="p-3 rounded-xl border border-[#222230] bg-[#14141c] hover:bg-[#1a1a24] text-left transition flex flex-col justify-between group disabled:opacity-50"
+                className="p-2.5 sm:p-3 rounded-xl border border-[#222230] bg-[#14141c] hover:bg-[#1a1a24] text-left transition flex flex-col justify-between group disabled:opacity-50 active:scale-95"
               >
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1">
-                    <IconShield className="w-3 h-3 text-zinc-300" />
-                    <span>Admin</span>
+                  <span className="text-xs font-semibold text-white flex items-center gap-1 truncate">
+                    <IconShield className="w-3 h-3 text-zinc-300 shrink-0" />
+                    <span className="truncate">Admin</span>
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-mono">Control</span>
+                  <span className="text-[9px] text-zinc-500 font-mono">Control</span>
                 </div>
-                <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate">
+                <span className="text-[10px] text-zinc-400 font-mono mt-1 truncate block w-full">
                   admin@ipsakti.gov.in
                 </span>
               </button>

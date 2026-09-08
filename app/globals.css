@@ -7,7 +7,9 @@
   --border-color: #22222a;
 }
 
-body {
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
   background-color: #070709;
   color: #f4f4f7;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -18,8 +20,8 @@ body {
 
 /* Custom sleek dark scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -27,15 +29,20 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #272732;
+  background: #22222d;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f4e;
+  background: #3a3a4c;
 }
 
 ::selection {
   background-color: rgba(255, 255, 255, 0.15);
   color: #ffffff;
+}
+
+/* Mobile tap highlight reset */
+* {
+  -webkit-tap-highlight-color: transparent;
 }
