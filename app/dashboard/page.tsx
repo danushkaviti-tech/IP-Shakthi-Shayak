@@ -1159,30 +1159,30 @@ export default function UserDashboard() {
       {/* MAIN CONVERSATIONAL WORKSPACE */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#070709] relative">
         {/* TOP STATUS BAR */}
-        <header className="h-14 border-b border-[#181820] bg-[#070709]/90 backdrop-blur-md px-4 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-3">
+        <header className="min-h-14 border-b border-[#181820] bg-[#070709]/90 backdrop-blur-md px-3 sm:px-4 py-2 flex items-center justify-between sticky top-0 z-30 gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg bg-[#121218] border border-[#1f1f2a] hover:bg-[#1a1a24] text-zinc-400 hover:text-white transition"
+              className="p-1.5 rounded-lg bg-[#121218] border border-[#1f1f2a] hover:bg-[#1a1a24] text-zinc-400 hover:text-white transition shrink-0"
               title="Toggle sidebar"
             >
               <IconMenu className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-xs tracking-tight text-white">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-semibold text-xs tracking-tight text-white truncate">
                 IP-SAKTI Intelligence
               </span>
-              <span className="hidden sm:inline-flex items-center gap-2 text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#0c1612] text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-                  <span className="beacon-light inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+              <span className="hidden sm:inline-flex items-center gap-2 text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#0c1612] text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] shrink-0">
+                <span className="relative flex h-2 w-2 items-center justify-center">
+                  <span className="beacon-light inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                 </span>
-                <span className="font-semibold tracking-wide">LangGraph StateGraph</span>
+                <span className="font-semibold tracking-wide">LangGraph Pipeline</span>
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {isAdmin && (
               <Link
                 href="/admin/analytics"
@@ -1204,13 +1204,13 @@ export default function UserDashboard() {
                 onChange={(e) => setAutoReadVoice(e.target.checked)}
                 className="rounded border-zinc-700 bg-zinc-900 text-white focus:ring-0 accent-white"
               />
-              <span className="text-[11px] font-mono">Auto Read Aloud</span>
+              <span className="text-[11px] font-mono">Auto Read</span>
             </label>
 
             {messages.length > 0 && (
               <button
                 onClick={startNewChat}
-                className="text-xs text-zinc-400 hover:text-zinc-200 transition px-2 py-1 font-mono"
+                className="text-[11px] sm:text-xs text-zinc-400 hover:text-zinc-200 transition px-2 py-1 font-mono"
               >
                 Clear
               </button>
@@ -1219,17 +1219,19 @@ export default function UserDashboard() {
         </header>
 
         {/* MESSAGES SCROLL STREAM */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-0 py-6">
-          <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-0 py-4 sm:py-6">
+          <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
             {/* HERO LAUNCH SCREEN IF EMPTY */}
             {messages.length === 0 && (
-              <div className="py-10 flex flex-col items-center justify-center text-center space-y-6">
-                <div className="h-14 w-14 rounded-2xl bg-zinc-100 text-black flex items-center justify-center font-bold text-lg shadow-lg">
-                  IP
-                </div>
+              <div className="py-6 sm:py-10 flex flex-col items-center justify-center text-center space-y-4 sm:space-y-6 px-2">
+                <img
+                  src="/logo.png"
+                  alt="IP-SAKTI Logo"
+                  className="h-16 w-16 rounded-2xl object-contain shadow-2xl border border-[#222232]"
+                />
 
                 <div className="space-y-1.5 max-w-lg">
-                  <h2 className="text-xl font-bold tracking-tight text-white">
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
                     IP-SAKTI Regulatory & Patent Intelligence
                   </h2>
                   <p className="text-xs text-zinc-400 leading-relaxed font-sans">
