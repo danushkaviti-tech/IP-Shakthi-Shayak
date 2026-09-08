@@ -1199,6 +1199,14 @@ export default function UserDashboard() {
           </div>
         </div>
       )}
+
+      {/* CITATION DOCUMENT INSPECTOR MODAL */}
+      <CitationViewerModal
+        isOpen={citationModalOpen}
+        citation={selectedCitation}
+        onClose={() => setCitationModalOpen(false)}
+        highlightKeyword={activeSearchQuery}
+      />
     </main>
   );
 }
