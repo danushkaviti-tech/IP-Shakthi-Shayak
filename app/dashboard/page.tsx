@@ -1172,8 +1172,8 @@ export default function UserDashboard() {
       {/* MAIN CONVERSATIONAL WORKSPACE */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#070709] relative">
         {/* TOP STATUS BAR */}
-        <header className="min-h-14 border-b border-[#181820] bg-[#070709]/90 backdrop-blur-md px-3 sm:px-4 py-2 flex items-center justify-between sticky top-0 z-30 gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <header className="min-h-12 sm:min-h-14 border-b border-[#181820] bg-[#070709]/95 backdrop-blur-md px-2.5 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between sticky top-0 z-30 gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg bg-[#121218] border border-[#1f1f2a] hover:bg-[#1a1a24] text-zinc-400 hover:text-white transition shrink-0"
@@ -1183,7 +1183,7 @@ export default function UserDashboard() {
             </button>
 
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-semibold text-xs tracking-tight text-white truncate">
+              <span className="font-semibold text-xs tracking-tight text-white truncate max-w-[125px] xs:max-w-[165px] sm:max-w-none">
                 IP-SAKTI Intelligence
               </span>
               <span className="hidden sm:inline-flex items-center gap-2 text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#0c1612] text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] shrink-0">
@@ -1195,11 +1195,11 @@ export default function UserDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0 min-w-0">
             {isAdmin && (
               <Link
                 href="/admin/analytics"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-zinc-100 text-black font-semibold text-xs hover:bg-zinc-200 transition shadow-sm"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-zinc-100 text-black font-semibold text-xs hover:bg-zinc-200 transition shadow-sm"
               >
                 <IconShield className="w-3.5 h-3.5" />
                 <span>Admin Portal</span>
@@ -1223,7 +1223,7 @@ export default function UserDashboard() {
             {messages.length > 0 && (
               <button
                 onClick={startNewChat}
-                className="text-[11px] sm:text-xs text-zinc-400 hover:text-zinc-200 transition px-2 py-1 font-mono"
+                className="text-[10px] sm:text-xs text-zinc-400 hover:text-zinc-200 transition px-2 py-1 font-mono rounded bg-[#121218] border border-[#1e1e28]"
               >
                 Clear
               </button>
@@ -1442,17 +1442,17 @@ export default function UserDashboard() {
                       </div>
                     ) : loading && index === messages.length - 1 ? (
                       /* HIGH-TECH MULTI-STAGE THINKING & ANALYZING SPINNER CARD WITH APP LOGO */
-                      <div className="p-4 sm:p-5 rounded-2xl bg-[#09090f] border border-[#1f1f2e] space-y-4 shadow-2xl overflow-hidden shimmer-sweep">
+                      <div className="p-3.5 sm:p-5 rounded-2xl bg-[#09090f] border border-[#1f1f2e] space-y-3 sm:space-y-4 shadow-2xl overflow-hidden shimmer-sweep">
                         {/* TOP SPINNER & STAGE HEADER */}
-                        <div className="flex items-start gap-4">
+                        <div className="flex items-start gap-3 sm:gap-4">
                           {/* DUAL GLOWING ROTATING SPINNER WHEEL WITH APP LOGO IN CENTER */}
-                          <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
+                          <div className="relative w-10 h-10 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center">
                             {/* Outer spinning conic-gradient glowing ring */}
                             <div className="logo-spinner-ring" />
                             {/* Inner reverse spinning accent ring */}
                             <div className="absolute inset-0.5 rounded-full border-2 border-transparent border-t-emerald-300 border-b-cyan-300 animate-spin-reverse-slow opacity-80" />
                             {/* Center glowing App Logo badge */}
-                            <div className="relative h-9 w-9 rounded-full bg-[#0a0a10] border border-[#1e1e2c] p-1 flex items-center justify-center z-10 shadow-inner">
+                            <div className="relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-[#0a0a10] border border-[#1e1e2c] p-0.5 sm:p-1 flex items-center justify-center z-10 shadow-inner">
                               <img
                                 src="/logo.png"
                                 alt="IP-SAKTI Logo"
@@ -1463,9 +1463,9 @@ export default function UserDashboard() {
 
                           {/* STAGE TITLE & DETAILS */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-semibold text-white tracking-wide flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-between">
+                              <div className="flex items-center gap-1.5 sm:gap-2">
+                                <span className="text-xs sm:text-sm font-semibold text-white tracking-wide flex items-center gap-1 sm:gap-1.5">
                                   <span>Thinking & Analyzing</span>
                                   <span className="inline-flex gap-1 items-center">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -1473,32 +1473,32 @@ export default function UserDashboard() {
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "300ms" }} />
                                   </span>
                                 </span>
-                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
+                                <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
                                   {thinkingSeconds.toFixed(1)}s
                                 </span>
                               </div>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#161622] text-zinc-400 border border-[#262638]">
+                              <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-[#161622] text-zinc-400 border border-[#262638]">
                                 {THINKING_STAGES[thinkingStep]?.badge || "Processing"}
                               </span>
                             </div>
-                            <p className="text-xs text-zinc-200 font-medium mt-1">
+                            <p className="text-xs text-zinc-200 font-medium mt-1 truncate">
                               {THINKING_STAGES[thinkingStep]?.title}
                             </p>
-                            <p className="text-[11px] text-zinc-400 font-mono mt-0.5 leading-relaxed">
+                            <p className="text-[10px] sm:text-[11px] text-zinc-400 font-mono mt-0.5 leading-snug line-clamp-2">
                               {THINKING_STAGES[thinkingStep]?.desc}
                             </p>
                           </div>
                         </div>
 
                         {/* PROGRESS PIPELINE STEPS */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2.5 border-t border-[#181824]">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 border-t border-[#181824]">
                           {THINKING_STAGES.map((stg, sIdx) => {
                             const isPast = sIdx < thinkingStep;
                             const isCurrent = sIdx === thinkingStep;
                             return (
                               <div
                                 key={sIdx}
-                                className={`p-2.5 rounded-xl border text-[10px] font-mono transition flex flex-col justify-between gap-1.5 ${
+                                className={`p-2 sm:p-2.5 rounded-xl border text-[9px] sm:text-[10px] font-mono transition flex flex-col justify-between gap-1 min-w-0 overflow-hidden ${
                                   isCurrent
                                     ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30"
                                     : isPast
@@ -1519,8 +1519,8 @@ export default function UserDashboard() {
                                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
                                   )}
                                 </div>
-                                <span className="truncate font-semibold text-[10px] text-zinc-200">
-                                  {stg.title.split(" ")[0]} {stg.title.split(" ")[1] || ""}
+                                <span className="truncate block font-semibold text-[9px] sm:text-[10px] text-zinc-200">
+                                  {stg.title}
                                 </span>
                               </div>
                             );
@@ -1534,64 +1534,64 @@ export default function UserDashboard() {
 
                   {/* CITATIONS & SOURCES CARDS */}
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-4 pt-3.5 border-t border-[#1c1c26] space-y-3">
+                    <div className="mt-3.5 pt-3 sm:mt-4 sm:pt-3.5 border-t border-[#1c1c26] space-y-2.5 sm:space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
                           <IconScale className="w-3.5 h-3.5 text-zinc-400" />
                           <span>Verified Statutory Sources ({msg.sources.length})</span>
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-mono">
+                        <span className="text-[9px] sm:text-[10px] text-zinc-500 font-mono">
                           Inspect & Download
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                         {msg.sources.map((src, sIdx) => (
                           <div
                             key={sIdx}
                             onClick={() => openCitation(src)}
-                            className="p-3.5 rounded-xl bg-[#08080c] hover:bg-[#121218] border border-[#1e1e28] hover:border-zinc-700 cursor-pointer transition flex flex-col justify-between space-y-2.5 group shadow-sm"
+                            className="p-3 sm:p-3.5 rounded-xl bg-[#08080c] hover:bg-[#121218] border border-[#1e1e28] hover:border-zinc-700 cursor-pointer transition flex flex-col justify-between space-y-2 group shadow-sm"
                           >
                             <div>
-                              <div className="flex items-center justify-between gap-1 mb-1.5">
-                                <span className="font-semibold text-xs text-zinc-100 group-hover:text-white truncate flex items-center gap-1.5">
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <span className="font-semibold text-xs text-zinc-100 group-hover:text-white truncate flex items-center gap-1.5 min-w-0">
                                   <IconFileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                                   <span className="truncate">{src.document}</span>
                                 </span>
-                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                                <span className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
                                   {src.confidence}% Match
                                 </span>
                               </div>
 
-                              <div className="text-[10px] text-zinc-400 font-mono mb-2">
+                              <div className="text-[10px] text-zinc-400 font-mono mb-1.5 truncate">
                                 <span>{src.section}</span>
                               </div>
 
                               {/* HIGHLIGHTED POINT EXTRACTED FROM STATUTORY TEXT */}
-                              <div className="p-2.5 rounded-lg bg-[#040406] border border-[#181822] text-[11px] text-zinc-300 leading-relaxed font-sans">
-                                <span className="text-[10px] text-amber-400/90 font-mono block mb-1">
+                              <div className="p-2 sm:p-2.5 rounded-lg bg-[#040406] border border-[#181822] text-[10px] sm:text-[11px] text-zinc-300 leading-relaxed font-sans overflow-hidden">
+                                <span className="text-[9px] sm:text-[10px] text-amber-400/90 font-mono block mb-0.5">
                                   Cited Grounding Excerpt:
                                 </span>
-                                <mark className="bg-amber-400/20 text-amber-200 px-1 py-0.5 rounded font-medium border border-amber-400/30">
+                                <mark className="bg-amber-400/20 text-amber-200 px-1 py-0.5 rounded font-medium border border-amber-400/30 break-words">
                                   {src.highlightPoint || src.snippet}
                                 </mark>
                               </div>
                             </div>
 
-                            <div className="pt-2 border-t border-[#1a1a24] flex items-center justify-between text-[11px] font-mono">
-                              <span className="text-zinc-400 group-hover:text-zinc-200 flex items-center gap-1">
-                                <IconSearch className="w-3 h-3 text-zinc-400" />
-                                <span>Inspect Full Text</span>
+                            <div className="pt-2 border-t border-[#1a1a24] flex items-center justify-between gap-1 text-[10px] sm:text-[11px] font-mono">
+                              <span className="text-zinc-400 group-hover:text-zinc-200 flex items-center gap-1 truncate">
+                                <IconSearch className="w-3 h-3 text-zinc-400 shrink-0" />
+                                <span className="truncate">Inspect</span>
                               </span>
                               <a
                                 href={src.downloadUrl}
                                 download
                                 onClick={(e) => e.stopPropagation()}
-                                className="px-2.5 py-1 rounded-lg bg-zinc-100 text-black hover:bg-white font-semibold text-[10px] transition shadow-sm flex items-center gap-1.5"
+                                className="px-2 sm:px-2.5 py-1 rounded-lg bg-zinc-100 text-black hover:bg-white font-semibold text-[9px] sm:text-[10px] transition shadow-sm flex items-center gap-1 shrink-0"
                                 title="Download source document"
                               >
                                 <IconDownload className="w-3 h-3" />
-                                <span>Download Document</span>
+                                <span>Download</span>
                               </a>
                             </div>
                           </div>
@@ -1602,50 +1602,50 @@ export default function UserDashboard() {
 
                   {/* ASSISTANT TELEMETRY & ACTION BAR */}
                   {msg.role === "assistant" && (
-                    <div className="mt-4 pt-3 border-t border-[#1c1c26] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[10px] text-zinc-500 font-mono">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
-                          ⚡ {msg.tokens?.isCached ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s (Redis Cache Hit)` : msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s calculation time` : "0.85s calculation time"}
+                    <div className="mt-3.5 pt-2.5 sm:mt-4 sm:pt-3 border-t border-[#1c1c26] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[10px] sm:text-[11px] text-zinc-500 font-mono">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        <span className="text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded font-semibold flex items-center gap-1 text-[9px] sm:text-[10px]">
+                          ⚡ {msg.tokens?.isCached ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s (Cache)` : msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s` : "0.85s"}
                         </span>
-                        <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                        <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] sm:text-[10px]">
                           Grounding: {msg.accuracyScore ?? 98.4}%
                         </span>
                         {msg.tokens && (
-                          <span className="hidden sm:inline">Tokens: {msg.tokens.totalTokens}</span>
+                          <span className="hidden sm:inline text-[10px] text-zinc-400">Tokens: {msg.tokens.totalTokens}</span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:justify-end">
-                        {/* RLHF Feedback Buttons (Model Training Alignment) */}
+                      <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                        {/* RLHF Feedback Buttons */}
                         <button
                           onClick={() => handleThumbsUp(index, msg.content)}
-                          title="Good response (trains model on accurate answer)"
-                          className={`px-2 py-1 rounded transition flex items-center gap-1 ${
+                          title="Good response"
+                          className={`px-2 py-1 rounded transition flex items-center gap-1 text-[10px] sm:text-xs border ${
                             feedbackMap[index] === "positive"
-                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                              : "hover:bg-[#181822] text-zinc-500 hover:text-emerald-400"
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                              : "bg-[#111118] border-[#1e1e28] text-zinc-400 hover:text-emerald-400"
                           }`}
                         >
                           <IconThumbUp className="w-3 h-3" />
-                          <span className="inline">Good</span>
+                          <span>Good</span>
                         </button>
 
                         <button
                           onClick={() => handleThumbsDown(index, msg.content)}
-                          title="Poor response / issues (submit corrections for model fine-tuning)"
-                          className={`px-2 py-1 rounded transition flex items-center gap-1 ${
+                          title="Poor response"
+                          className={`px-2 py-1 rounded transition flex items-center gap-1 text-[10px] sm:text-xs border ${
                             feedbackMap[index] === "negative"
-                              ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
-                              : "hover:bg-[#181822] text-zinc-500 hover:text-rose-400"
+                              ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
+                              : "bg-[#111118] border-[#1e1e28] text-zinc-400 hover:text-rose-400"
                           }`}
                         >
                           <IconThumbDown className="w-3 h-3" />
-                          <span className="inline">Bad</span>
+                          <span>Bad</span>
                         </button>
 
                         <button
                           onClick={() => copyMessage(msg.content, index)}
-                          className="px-2 py-1 rounded hover:bg-[#181822] text-zinc-400 hover:text-white transition flex items-center gap-1"
+                          className="px-2 py-1 rounded bg-[#111118] border border-[#1e1e28] text-zinc-400 hover:text-white transition flex items-center gap-1 text-[10px] sm:text-xs"
                         >
                           {copiedIndex === index ? (
                             <>
@@ -1663,7 +1663,7 @@ export default function UserDashboard() {
                         <button
                           onClick={() => deleteMessage(index)}
                           title="Delete response"
-                          className="px-2 py-1 rounded hover:bg-[#181822] text-zinc-500 hover:text-rose-400 transition flex items-center gap-1"
+                          className="px-2 py-1 rounded bg-[#111118] border border-[#1e1e28] text-zinc-400 hover:text-rose-400 transition flex items-center gap-1 text-[10px] sm:text-xs"
                         >
                           <IconTrash className="w-3 h-3" />
                           <span>Delete</span>
@@ -1765,18 +1765,18 @@ export default function UserDashboard() {
                 onKeyDown={handleKeyDown}
                 rows={1}
                 placeholder={`Ask IP-SAKTI in ${language} or attach regulatory PDF...`}
-                className="w-full bg-transparent px-4 pt-3.5 pb-12 text-sm text-white placeholder:text-zinc-600 outline-none resize-none min-h-[52px] max-h-[180px]"
+                className="w-full bg-transparent px-3.5 sm:px-4 pt-3 sm:pt-3.5 pb-11 sm:pb-12 text-xs sm:text-sm text-white placeholder:text-zinc-500 outline-none resize-none min-h-[48px] sm:min-h-[52px] max-h-[180px]"
               />
 
               {/* ACTION TOOLBAR */}
-              <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between">
+              <div className="absolute bottom-2 sm:bottom-2.5 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={fileLoading}
                     title="Attach PDF or document files"
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#161620] hover:bg-[#1e1e2a] text-xs font-medium text-zinc-300 hover:text-white transition border border-[#242434]"
+                    className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-[#161620] hover:bg-[#1e1e2a] text-xs font-medium text-zinc-300 hover:text-white transition border border-[#242434]"
                   >
                     <IconPaperclip className="w-3.5 h-3.5 text-zinc-400" />
                     <span className="hidden sm:inline">Add Files</span>
@@ -1792,21 +1792,21 @@ export default function UserDashboard() {
                   type="submit"
                   disabled={loading || (!question.trim() && attachedFiles.length === 0)}
                   title="Send query"
-                  className="h-8 w-8 rounded-full bg-white text-black hover:bg-zinc-200 disabled:bg-[#1c1c26] disabled:text-zinc-600 flex items-center justify-center transition disabled:cursor-not-allowed shadow-sm relative overflow-hidden shrink-0"
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-white text-black hover:bg-zinc-200 disabled:bg-[#1c1c26] disabled:text-zinc-600 flex items-center justify-center transition disabled:cursor-not-allowed shadow-sm relative overflow-hidden shrink-0"
                 >
                   {loading ? (
-                    <div className="relative w-5 h-5 flex items-center justify-center">
+                    <div className="relative w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
                       <div className="absolute inset-0 rounded-full border border-transparent border-t-black border-r-black animate-spin" />
-                      <img src="/logo.png" alt="Loading" className="w-3.5 h-3.5 object-contain rounded-full" />
+                      <img src="/logo.png" alt="Loading" className="w-3 h-3 sm:w-3.5 sm:h-3.5 object-contain rounded-full" />
                     </div>
                   ) : (
-                    <IconArrowUp className="w-4 h-4 text-current" />
+                    <IconArrowUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-current" />
                   )}
                 </button>
               </div>
             </form>
 
-            <p className="text-center text-[10px] text-zinc-500 font-mono">
+            <p className="text-center text-[9px] sm:text-[10px] text-zinc-500 font-mono mt-1.5 truncate px-2">
               IP-SAKTI Sahayak Enterprise RAG • Verify critical patent citations against official Gazette notifications.
             </p>
           </div>
