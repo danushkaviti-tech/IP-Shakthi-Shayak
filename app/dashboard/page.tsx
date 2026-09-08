@@ -42,6 +42,7 @@ interface AttachedFile {
 interface Message {
   role: "user" | "assistant";
   content: string;
+  thoughtDuration?: string;
   attachedFiles?: {
     name: string;
     size: number;
@@ -95,6 +96,8 @@ export default function UserDashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
+  const [thinkingSeconds, setThinkingSeconds] = useState(0);
+  const [expandedThoughts, setExpandedThoughts] = useState<Record<number, boolean>>({});
   const [isWriting, setIsWriting] = useState(false);
   const [error, setError] = useState("");
   const [language, setLanguage] = useState("English");
@@ -500,8 +503,14 @@ export default function UserDashboard() {
     setActiveSearchQuery(queryText);
     setLoading(true);
     setThinkingStep(0);
+    setThinkingSeconds(0);
     setIsWriting(false);
     setError("");
+
+    const startTime = Date.now();
+    const timerInterval = setInterval(() => {
+      setThinkingSeconds(Number(((Date.now() - startTime) / 1000).toFixed(1)));
+    }, 100);
 
     // Interval to cycle through thinking/analyzing stages smoothly
     const stageInterval = setInterval(() => {
@@ -677,10 +686,13 @@ export default function UserDashboard() {
       isStreamingDone = true;
       await typewriterTick;
 
+      const calculatedDuration = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
+
       // Persist complete multi-turn session to MongoDB / state
       const finalAssistantMsg: Message = {
         role: "assistant",
         content: targetContent,
+        thoughtDuration: calculatedDuration,
         sources: streamSources,
         classification: streamClassification,
         accuracyScore: streamAccuracyScore,
@@ -695,6 +707,7 @@ export default function UserDashboard() {
       console.error(err);
       setError(err?.message || "Unable to complete RAG request. Please verify server connectivity.");
     } finally {
+      clearInterval(timerInterval);
       clearInterval(stageInterval);
       setIsWriting(false);
       setLoading(false);
@@ -1289,14 +1302,19 @@ export default function UserDashboard() {
                 }`}
               >
                 {msg.role === "assistant" && (
-                  <div
-                    className={`h-7 w-7 rounded-lg text-black font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 shadow-sm transition-all ${
-                      loading && index === messages.length - 1 && !msg.content
-                        ? "bg-emerald-400 ring-2 ring-emerald-400/50 animate-pulse-soft"
-                        : "bg-zinc-100"
-                    }`}
-                  >
-                    <IconSparkles className="w-3.5 h-3.5 text-black" />
+                  <div className="relative h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-md">
+                    {loading && index === messages.length - 1 && (
+                      <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-tr from-emerald-400 via-cyan-400 to-indigo-500 animate-conic-rotate opacity-80 blur-[1px]" />
+                    )}
+                    <div className="relative h-full w-full rounded-xl bg-[#0f0f16] border border-[#222234] flex items-center justify-center overflow-hidden p-1 shadow-sm">
+                      <img
+                        src="/logo.png"
+                        alt="IP-SAKTI Logo"
+                        className={`w-full h-full object-contain rounded-lg ${
+                          loading && index === messages.length - 1 && !msg.content ? "animate-pulse-soft" : ""
+                        }`}
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1350,6 +1368,63 @@ export default function UserDashboard() {
                   <div className="text-sm leading-relaxed whitespace-pre-wrap font-normal">
                     {msg.content ? (
                       <div>
+                        {/* CHATGPT-STYLE COLLAPSIBLE THOUGHT FOR X SECONDS CONTAINER */}
+                        <div className="mb-3.5 rounded-xl border border-[#1d1d2b] bg-[#0a0a10]/90 overflow-hidden">
+                          <button
+                            onClick={() =>
+                              setExpandedThoughts((prev) => ({
+                                ...prev,
+                                [index]: !prev[index],
+                              }))
+                            }
+                            className="w-full px-3 py-1.5 flex items-center justify-between text-left hover:bg-[#12121c] transition text-zinc-400 hover:text-zinc-200"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="relative w-4 h-4 shrink-0 flex items-center justify-center">
+                                {loading && index === messages.length - 1 ? (
+                                  <div className="logo-spinner-ring !inset-[-2px]" />
+                                ) : null}
+                                <img src="/logo.png" alt="IP-SAKTI" className="w-3.5 h-3.5 object-contain rounded-full" />
+                              </div>
+                              <span className="text-xs font-mono text-zinc-300 flex items-center gap-1.5">
+                                {loading && index === messages.length - 1 ? (
+                                  <>
+                                    <span className="text-emerald-400 font-semibold">Thinking & Analyzing</span>
+                                    <span className="text-zinc-400">({thinkingSeconds.toFixed(1)}s)</span>
+                                    <span className="inline-flex gap-1 items-center ml-1">
+                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-zinc-400">Thought for</span>
+                                    <span className="text-zinc-200 font-semibold">{msg.thoughtDuration || "2.4s"}</span>
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono text-zinc-500 hover:text-zinc-300">
+                              {expandedThoughts[index] ? "Hide thought ▲" : "Show thought ▼"}
+                            </span>
+                          </button>
+
+                          {expandedThoughts[index] && (
+                            <div className="p-3 border-t border-[#181824] bg-[#07070b] space-y-2 text-[11px] font-mono">
+                              {THINKING_STAGES.map((stg, sIdx) => (
+                                <div key={sIdx} className="flex items-start gap-2 text-zinc-400">
+                                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                                  <div>
+                                    <span className="text-zinc-200 font-semibold">{stg.title}:</span>{" "}
+                                    <span className="text-zinc-400">{stg.desc}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                         {/* REAL-TIME WRITING STATUS BANNER */}
                         {loading && index === messages.length - 1 && (
                           <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[#1c1c28] text-[11px] font-mono text-emerald-400">
@@ -1357,7 +1432,7 @@ export default function UserDashboard() {
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                             </span>
-                            <span className="font-semibold text-zinc-300">Writing response in real-time...</span>
+                            <span className="font-semibold text-zinc-300">Synthesizing & writing response in real-time...</span>
                           </div>
                         )}
                         <span className="text-zinc-100">{msg.content}</span>
@@ -1366,72 +1441,86 @@ export default function UserDashboard() {
                         )}
                       </div>
                     ) : loading && index === messages.length - 1 ? (
-                      /* HIGH-TECH MULTI-STAGE THINKING & ANALYZING SPINNER CARD */
+                      /* HIGH-TECH MULTI-STAGE THINKING & ANALYZING SPINNER CARD WITH APP LOGO */
                       <div className="p-4 sm:p-5 rounded-2xl bg-[#09090f] border border-[#1f1f2e] space-y-4 shadow-2xl overflow-hidden shimmer-sweep">
                         {/* TOP SPINNER & STAGE HEADER */}
-                        <div className="flex items-start gap-3.5">
-                          {/* DUAL GLOWING ROTATING SPINNER */}
-                          <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
-                            {/* Outer spinning gradient ring */}
-                            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-emerald-400 border-r-cyan-400 animate-spin-slow" />
-                            {/* Inner reverse spinning ring */}
-                            <div className="absolute inset-1.5 rounded-full border-2 border-transparent border-b-emerald-300 border-l-teal-400 animate-spin-reverse-slow" />
-                            {/* Center glowing pulse icon */}
-                            <span className="text-sm animate-pulse-soft select-none">
-                              {THINKING_STAGES[thinkingStep]?.icon || "🧠"}
-                            </span>
+                        <div className="flex items-start gap-4">
+                          {/* DUAL GLOWING ROTATING SPINNER WHEEL WITH APP LOGO IN CENTER */}
+                          <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
+                            {/* Outer spinning conic-gradient glowing ring */}
+                            <div className="logo-spinner-ring" />
+                            {/* Inner reverse spinning accent ring */}
+                            <div className="absolute inset-0.5 rounded-full border-2 border-transparent border-t-emerald-300 border-b-cyan-300 animate-spin-reverse-slow opacity-80" />
+                            {/* Center glowing App Logo badge */}
+                            <div className="relative h-9 w-9 rounded-full bg-[#0a0a10] border border-[#1e1e2c] p-1 flex items-center justify-center z-10 shadow-inner">
+                              <img
+                                src="/logo.png"
+                                alt="IP-SAKTI Logo"
+                                className="w-full h-full object-contain rounded-full animate-pulse-soft"
+                              />
+                            </div>
                           </div>
 
                           {/* STAGE TITLE & DETAILS */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-semibold text-white tracking-wide flex items-center gap-1.5">
-                                <span>Thinking & Analyzing</span>
-                                <span className="inline-flex gap-1 items-center">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                            <div className="flex items-center gap-2 flex-wrap justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-white tracking-wide flex items-center gap-1.5">
+                                  <span>Thinking & Analyzing</span>
+                                  <span className="inline-flex gap-1 items-center">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                                  </span>
                                 </span>
-                              </span>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
+                                  {thinkingSeconds.toFixed(1)}s
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#161622] text-zinc-400 border border-[#262638]">
                                 {THINKING_STAGES[thinkingStep]?.badge || "Processing"}
                               </span>
                             </div>
                             <p className="text-xs text-zinc-200 font-medium mt-1">
                               {THINKING_STAGES[thinkingStep]?.title}
                             </p>
-                            <p className="text-[11px] text-zinc-500 font-mono mt-0.5 leading-relaxed">
+                            <p className="text-[11px] text-zinc-400 font-mono mt-0.5 leading-relaxed">
                               {THINKING_STAGES[thinkingStep]?.desc}
                             </p>
                           </div>
                         </div>
 
                         {/* PROGRESS PIPELINE STEPS */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[#181824]">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2.5 border-t border-[#181824]">
                           {THINKING_STAGES.map((stg, sIdx) => {
                             const isPast = sIdx < thinkingStep;
                             const isCurrent = sIdx === thinkingStep;
                             return (
                               <div
                                 key={sIdx}
-                                className={`p-2 rounded-xl border text-[10px] font-mono transition flex flex-col justify-between gap-1 ${
+                                className={`p-2.5 rounded-xl border text-[10px] font-mono transition flex flex-col justify-between gap-1.5 ${
                                   isCurrent
-                                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30"
                                     : isPast
-                                    ? "bg-[#11111a] border-[#222230] text-zinc-400"
+                                    ? "bg-[#11111a] border-[#222230] text-zinc-300"
                                     : "bg-[#0b0b10] border-[#161620] text-zinc-600 opacity-60"
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs">{stg.icon}</span>
                                   {isPast ? (
-                                    <span className="text-emerald-400 font-bold">✓</span>
+                                    <span className="text-emerald-400 font-bold text-xs">✓</span>
                                   ) : isCurrent ? (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                                  ) : null}
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                                    </span>
+                                  ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
+                                  )}
                                 </div>
                                 <span className="truncate font-semibold text-[10px] text-zinc-200">
-                                  {stg.title.split(" ")[0]}
+                                  {stg.title.split(" ")[0]} {stg.title.split(" ")[1] || ""}
                                 </span>
                               </div>
                             );
@@ -1703,9 +1792,16 @@ export default function UserDashboard() {
                   type="submit"
                   disabled={loading || (!question.trim() && attachedFiles.length === 0)}
                   title="Send query"
-                  className="h-8 w-8 rounded-full bg-white text-black hover:bg-zinc-200 disabled:bg-[#1c1c26] disabled:text-zinc-600 flex items-center justify-center transition disabled:cursor-not-allowed shadow-sm"
+                  className="h-8 w-8 rounded-full bg-white text-black hover:bg-zinc-200 disabled:bg-[#1c1c26] disabled:text-zinc-600 flex items-center justify-center transition disabled:cursor-not-allowed shadow-sm relative overflow-hidden shrink-0"
                 >
-                  <IconArrowUp className="w-4 h-4 text-current" />
+                  {loading ? (
+                    <div className="relative w-5 h-5 flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full border border-transparent border-t-black border-r-black animate-spin" />
+                      <img src="/logo.png" alt="Loading" className="w-3.5 h-3.5 object-contain rounded-full" />
+                    </div>
+                  ) : (
+                    <IconArrowUp className="w-4 h-4 text-current" />
+                  )}
                 </button>
               </div>
             </form>

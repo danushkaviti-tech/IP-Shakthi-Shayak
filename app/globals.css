@@ -85,13 +85,18 @@ body {
 }
 
 @keyframes pulse-soft {
-  0%, 100% { transform: scale(0.96); opacity: 0.75; }
-  50% { transform: scale(1.04); opacity: 1; }
+  0%, 100% { transform: scale(0.96); opacity: 0.85; }
+  50% { transform: scale(1.05); opacity: 1; }
 }
 
 @keyframes shimmer-sweep {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
+}
+
+@keyframes conic-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .animate-spin-slow {
@@ -104,6 +109,10 @@ body {
 
 .animate-pulse-soft {
   animation: pulse-soft 1.8s ease-in-out infinite;
+}
+
+.animate-conic-rotate {
+  animation: conic-rotate 2s linear infinite;
 }
 
 .shimmer-sweep {
@@ -121,5 +130,22 @@ body {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
   animation: shimmer-sweep 2s infinite;
 }
+
+/* App Logo Glowing Spinner Wheel */
+.logo-spinner-wheel {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-spinner-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg, #10b981, #06b6d4, #8b5cf6, transparent 60%, #10b981);
+  animation: conic-rotate 1.8s linear infinite;
+}
+
 
 
