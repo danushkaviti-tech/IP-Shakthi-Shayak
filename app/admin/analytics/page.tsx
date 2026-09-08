@@ -276,27 +276,27 @@ export default function AdminAnalyticsPage() {
   return (
     <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex flex-col font-sans selection:bg-zinc-800 selection:text-white">
       {/* EXECUTIVE TOP HEADER */}
-      <header className="h-16 border-b border-[#181820] bg-[#0c0c10]/95 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="h-8 w-8 rounded-lg bg-white text-black flex items-center justify-center font-bold text-xs shadow-sm">
+      <header className="min-h-16 border-b border-[#181820] bg-[#0c0c10]/95 backdrop-blur-md px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between sticky top-0 z-50 gap-3">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="h-8 w-8 rounded-lg bg-white text-black flex items-center justify-center font-bold text-xs shadow-sm shrink-0">
             <IconShield className="w-4 h-4 text-black" />
           </div>
-          <div>
-            <h1 className="font-semibold text-sm tracking-tight flex items-center gap-2 text-white">
-              IP-SAKTI Control & Telemetry Portal
-              <span className="text-[10px] px-2 py-0.5 rounded bg-[#161620] text-zinc-300 border border-[#242434] font-mono">
+          <div className="min-w-0">
+            <h1 className="font-semibold text-xs sm:text-sm tracking-tight flex items-center gap-2 text-white truncate">
+              <span className="truncate">IP-SAKTI Control Portal</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-[#161620] text-zinc-300 border border-[#242434] font-mono shrink-0">
                 ADMIN
               </span>
             </h1>
-            <p className="text-[11px] text-zinc-500 font-mono">
+            <p className="hidden sm:block text-[11px] text-zinc-500 font-mono truncate">
               Vector Ingestion • User Activity Telemetry • Model Latency Audit
             </p>
           </div>
         </div>
 
         {/* TOP TAB CONTROLS & CHAT SHORTCUT */}
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center bg-[#121218] border border-[#1f1f2a] rounded-xl p-1 text-xs">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="hidden lg:flex items-center bg-[#121218] border border-[#1f1f2a] rounded-xl p-1 text-xs">
             <button
               onClick={() => setActiveTab("overview")}
               className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
@@ -339,7 +339,7 @@ export default function AdminAnalyticsPage() {
 
           <Link
             href="/dashboard"
-            className="px-3.5 py-1.5 rounded-lg bg-[#14141c] hover:bg-[#1a1a24] border border-[#22222e] text-xs font-medium text-white transition flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-lg bg-[#14141c] hover:bg-[#1a1a24] border border-[#22222e] text-xs font-medium text-white transition flex items-center gap-1.5"
           >
             <span>Open Chat</span>
           </Link>
@@ -353,23 +353,29 @@ export default function AdminAnalyticsPage() {
         </div>
       </header>
 
-      {/* MOBILE TABS */}
-      <div className="md:hidden flex border-b border-[#181820] bg-[#0a0a0e] p-2 text-xs overflow-x-auto gap-2">
-        {(["overview", "documents", "users", "audit"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1.5 rounded-lg capitalize shrink-0 ${
-              activeTab === tab ? "bg-white text-black font-semibold" : "text-zinc-400"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* MOBILE TABS SUBHEADER */}
+      <div className="lg:hidden flex border-b border-[#181820] bg-[#0a0a0e] px-4 py-2 text-xs overflow-x-auto gap-2 scrollbar-none sticky top-16 z-40">
+        {(["overview", "documents", "users", "audit"] as const).map((tab) => {
+          const isAct = activeTab === tab;
+          const label = tab === "overview" ? "Telemetry" : tab === "documents" ? `Documents (${documents.length})` : tab === "users" ? `Users (${usersList.length})` : "Audit Log";
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition flex items-center gap-1.5 ${
+                isAct
+                  ? "bg-white text-black font-semibold shadow-sm"
+                  : "bg-[#14141a] text-zinc-400 border border-[#20202a]"
+              }`}
+            >
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* MAIN CONTAINER */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6 space-y-6">
         {error && (
           <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
             {error}
@@ -377,7 +383,7 @@ export default function AdminAnalyticsPage() {
         )}
 
         {/* TOP STAT TILES */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="p-5 rounded-2xl border border-[#1b1b26] bg-[#0c0c12] shadow-sm">
             <p className="text-xs font-medium text-zinc-500">System Tokens Processed</p>
             <h3 className="text-2xl font-bold text-white font-mono mt-1">
@@ -704,7 +710,7 @@ export default function AdminAnalyticsPage() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-zinc-300">
+                <table className="w-full min-w-[650px] text-left text-xs text-zinc-300">
                   <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-[#1b1b26] font-mono">
                     <tr>
                       <th className="pb-3">Document</th>
@@ -794,7 +800,7 @@ export default function AdminAnalyticsPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300">
+              <table className="w-full min-w-[650px] text-left text-xs text-zinc-300">
                 <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-[#1b1b26] font-mono">
                   <tr>
                     <th className="pb-3">Name</th>
@@ -853,7 +859,7 @@ export default function AdminAnalyticsPage() {
             </p>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300">
+              <table className="w-full min-w-[650px] text-left text-xs text-zinc-300">
                 <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-[#1b1b26] font-mono">
                   <tr>
                     <th className="pb-3">User</th>

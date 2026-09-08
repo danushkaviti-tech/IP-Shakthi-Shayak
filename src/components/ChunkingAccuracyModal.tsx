@@ -61,46 +61,46 @@ export default function ChunkingAccuracyModal({
   let accumulatedOffset = 0;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="w-full max-w-3xl bg-[#09090d] border border-[#222230] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+        className="w-full max-w-3xl bg-[#09090d] border border-[#222230] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER */}
-        <div className="p-5 border-b border-[#1c1c28] bg-[#101016] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400">
-              <IconSparkles className="w-5 h-5" />
+        <div className="p-4 sm:p-5 border-b border-[#1c1c28] bg-[#101016] flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+              <IconSparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm sm:text-base text-white">
-                  Document Chunking & Parsing Accuracy Analysis
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-semibold text-xs sm:text-base text-white truncate max-w-[200px] sm:max-w-md">
+                  Chunking & Accuracy Analysis
                 </h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
                   {metrics.status || "Optimal"}
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-2 font-mono">
-                <span className="text-zinc-200 truncate max-w-xs">{fileName}</span>
+              <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-2 font-mono text-[10px] sm:text-xs flex-wrap">
+                <span className="text-zinc-200 truncate max-w-[140px] sm:max-w-xs">{fileName}</span>
                 {fileSize && <span>• {Math.round(fileSize / 1024)} KB</span>}
-                <span>• {metrics.totalChunks} Chunks Ingested</span>
+                <span>• {metrics.totalChunks} Chunks</span>
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="h-8 w-8 rounded-lg bg-[#181822] hover:bg-[#222230] text-zinc-400 hover:text-white flex items-center justify-center transition border border-[#282836]"
+            className="h-8 w-8 rounded-lg bg-[#181822] hover:bg-[#222230] text-zinc-400 hover:text-white flex items-center justify-center transition border border-[#282836] shrink-0"
           >
             <IconX className="w-4 h-4" />
           </button>
         </div>
 
         {/* BODY */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 flex-1">
           {/* TOP SECTION: PIE CHART & LEGEND */}
-          <div className="grid md:grid-cols-12 gap-6 items-center p-5 rounded-2xl bg-[#0e0e14] border border-[#1e1e2c]">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6 items-center p-4 sm:p-5 rounded-2xl bg-[#0e0e14] border border-[#1e1e2c]">
             {/* PIE / DONUT GRAPH */}
             <div className="md:col-span-5 flex flex-col items-center justify-center relative">
               <div className="relative w-48 h-48 flex items-center justify-center">
@@ -210,7 +210,7 @@ export default function ChunkingAccuracyModal({
             <h4 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold mb-3">
               Telemetry & Mathematical Indexing Metrics
             </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
               <div className="p-3.5 rounded-xl bg-[#0e0e14] border border-[#1e1e2c]">
                 <span className="text-[10px] text-zinc-500 uppercase font-mono block mb-1">
                   Sentence Boundary Score
@@ -265,7 +265,7 @@ export default function ChunkingAccuracyModal({
           {/* CHUNK PREVIEWS ACCORDION / STREAM */}
           {metrics.chunksPreview && metrics.chunksPreview.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-1">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
                   Parsed Chunks Sample Stream (First {metrics.chunksPreview.length})
                 </h4>
@@ -278,17 +278,17 @@ export default function ChunkingAccuracyModal({
                 {metrics.chunksPreview.map((chunk) => (
                   <div
                     key={chunk.index}
-                    className="p-3 rounded-xl bg-[#0a0a0f] border border-[#1b1b26] flex items-start justify-between gap-3 text-xs"
+                    className="p-3 rounded-xl bg-[#0a0a0f] border border-[#1b1b26] flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3 text-xs"
                   >
-                    <div className="flex items-start gap-2.5">
+                    <div className="flex items-start gap-2.5 min-w-0">
                       <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 font-mono text-[10px] text-zinc-300 shrink-0">
                         #{chunk.index}
                       </span>
-                      <p className="text-zinc-300 font-sans text-xs leading-relaxed">
+                      <p className="text-zinc-300 font-sans text-xs leading-relaxed break-words">
                         {chunk.snippet}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-[#181822]">
                       <span className="font-mono text-[11px] text-zinc-400 block">
                         {chunk.length} chars
                       </span>
@@ -304,13 +304,13 @@ export default function ChunkingAccuracyModal({
         </div>
 
         {/* FOOTER */}
-        <div className="p-4 border-t border-[#1c1c28] bg-[#101016] flex items-center justify-between">
-          <span className="text-[11px] font-mono text-zinc-500">
-            Engine: Sliding Sentence-Boundary Tokenizer with ChromaDB Vector Indexing
+        <div className="p-3.5 sm:p-4 border-t border-[#1c1c28] bg-[#101016] flex flex-wrap items-center justify-between gap-2.5">
+          <span className="text-[10px] sm:text-[11px] font-mono text-zinc-500 truncate max-w-[260px] sm:max-w-none">
+            Sliding Sentence-Boundary Tokenizer with Vector Indexing
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 font-semibold text-xs transition shadow-sm"
+            className="px-4 py-1.5 sm:py-2 rounded-xl bg-white text-black hover:bg-zinc-200 font-semibold text-xs transition shadow-sm ml-auto sm:ml-0"
           >
             Close Analysis
           </button>

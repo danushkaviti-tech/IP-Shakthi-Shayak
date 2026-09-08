@@ -171,8 +171,14 @@ export default function UserDashboard() {
     setChunkModalOpen(true);
   }
 
-  // Sidebar toggle
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Sidebar toggle (auto-closed on mobile by default)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setSidebarOpen(true);
+    }
+  }, []);
 
   // Stats
   const [userStats, setUserStats] = useState<any>(null);
@@ -833,11 +839,19 @@ export default function UserDashboard() {
         </div>
       )}
 
+      {/* MOBILE SIDEBAR BACKDROP OVERLAY */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-35 lg:hidden animate-in fade-in duration-150"
+        />
+      )}
+
       {/* STATE-OF-THE-ART EXECUTIVE SIDEBAR */}
       <aside
         className={`${
-          sidebarOpen ? "w-64" : "w-0 -translate-x-full"
-        } lg:translate-x-0 transition-all duration-200 ease-in-out bg-[#0c0c10] border-r border-[#1a1a22] flex flex-col shrink-0 z-40 fixed lg:static h-full h-screen`}
+          sidebarOpen ? "w-72 max-w-[85vw] translate-x-0" : "w-0 -translate-x-full"
+        } lg:translate-x-0 lg:w-64 transition-all duration-200 ease-in-out bg-[#0c0c10] border-r border-[#1a1a22] flex flex-col shrink-0 z-40 fixed lg:static h-full h-screen`}
       >
         {/* SIDEBAR HEADER */}
         <div className="p-3.5 border-b border-[#1a1a22]">
@@ -1237,7 +1251,7 @@ export default function UserDashboard() {
                 )}
 
                 <div
-                  className={`max-w-[88%] rounded-2xl p-4 md:p-5 shadow-sm ${
+                  className={`max-w-full sm:max-w-[90%] rounded-2xl p-3.5 sm:p-5 shadow-sm ${
                     msg.role === "user"
                       ? "bg-[#181822] text-white border border-[#282836] rounded-tr-sm"
                       : "bg-[#0f0f14] text-zinc-200 border border-[#1c1c26] rounded-tl-sm w-full"
@@ -1314,7 +1328,7 @@ export default function UserDashboard() {
                         </span>
                       </div>
 
-                      <div className="grid sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                         {msg.sources.map((src, sIdx) => (
                           <div
                             key={sIdx}
@@ -1371,8 +1385,8 @@ export default function UserDashboard() {
 
                   {/* ASSISTANT TELEMETRY & ACTION BAR */}
                   {msg.role === "assistant" && (
-                    <div className="mt-4 pt-3 border-t border-[#1c1c26] flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 font-mono">
-                      <div className="flex items-center gap-2.5 flex-wrap">
+                    <div className="mt-4 pt-3 border-t border-[#1c1c26] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[10px] text-zinc-500 font-mono">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
                           ⚡ {msg.tokens?.isCached ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s (Redis Cache Hit)` : msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s calculation time` : "0.85s calculation time"}
                         </span>
@@ -1384,7 +1398,7 @@ export default function UserDashboard() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:justify-end">
                         {/* RLHF Feedback Buttons (Model Training Alignment) */}
                         <button
                           onClick={() => handleThumbsUp(index, msg.content)}
@@ -1396,7 +1410,7 @@ export default function UserDashboard() {
                           }`}
                         >
                           <IconThumbUp className="w-3 h-3" />
-                          <span className="hidden md:inline">Good</span>
+                          <span className="inline">Good</span>
                         </button>
 
                         <button
@@ -1409,7 +1423,7 @@ export default function UserDashboard() {
                           }`}
                         >
                           <IconThumbDown className="w-3 h-3" />
-                          <span className="hidden md:inline">Bad</span>
+                          <span className="inline">Bad</span>
                         </button>
 
                         <button

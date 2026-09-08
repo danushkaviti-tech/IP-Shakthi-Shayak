@@ -89,27 +89,27 @@ export default function CitationViewerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
       <div
-        className="w-full max-w-2xl bg-[#0e0e12] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
+        className="w-full max-w-2xl bg-[#0e0e12] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
-        <div className="p-5 border-b border-zinc-800/80 bg-[#121216] flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="h-9 w-9 rounded-xl bg-zinc-800 border border-zinc-700/80 flex items-center justify-center text-zinc-200 shrink-0">
+        <div className="p-4 sm:p-5 border-b border-zinc-800/80 bg-[#121216] flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-zinc-800 border border-zinc-700/80 flex items-center justify-center text-zinc-200 shrink-0 mt-0.5">
               <IconFileText className="w-4 h-4 text-zinc-300" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold text-sm text-white truncate max-w-md">
+                <h3 className="font-semibold text-xs sm:text-sm text-white truncate max-w-[200px] sm:max-w-md">
                   {citation.document}
                 </h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 truncate">
                   {citation.section}
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 mt-1 flex items-center gap-2 font-mono text-[11px]">
+              <p className="text-xs text-zinc-400 mt-1 flex items-center gap-2 font-mono text-[10px] sm:text-[11px] flex-wrap">
                 <span>Jurisdiction: {citation.jurisdiction || "India"}</span>
                 <span>•</span>
                 <span>Domain: {citation.ipType || "General IP"}</span>
@@ -119,14 +119,14 @@ export default function CitationViewerModal({
 
           <button
             onClick={onClose}
-            className="h-8 w-8 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition"
+            className="h-8 w-8 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition shrink-0"
           >
             <IconX className="w-4 h-4" />
           </button>
         </div>
 
         {/* MODAL BODY */}
-        <div className="p-6 overflow-y-auto space-y-4 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
           {/* CONFIDENCE BADGE */}
           <div className="flex items-center justify-between p-3 rounded-xl bg-[#141418] border border-zinc-800/80">
             <div className="flex items-center gap-2">
@@ -161,17 +161,17 @@ export default function CitationViewerModal({
               </span>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#08080a] border border-zinc-800/80 max-h-72 overflow-y-auto">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-[#08080a] border border-zinc-800/80 max-h-60 sm:max-h-72 overflow-y-auto">
               {renderHighlightedText(citation.fullText || citation.snippet)}
             </div>
           </div>
         </div>
 
         {/* MODAL FOOTER ACTIONS */}
-        <div className="p-4 border-t border-zinc-800/80 bg-[#121216] flex flex-wrap items-center justify-between gap-3">
+        <div className="p-3.5 sm:p-4 border-t border-zinc-800/80 bg-[#121216] flex flex-wrap items-center justify-between gap-2.5">
           <button
             onClick={copyText}
-            className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 transition flex items-center gap-1.5"
+            className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 transition flex items-center gap-1.5"
           >
             {copied ? (
               <>
@@ -186,12 +186,12 @@ export default function CitationViewerModal({
             )}
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <a
               href={citation.viewUrl}
               target="_blank"
               rel="noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 transition flex items-center gap-1.5"
+              className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 transition flex items-center gap-1.5"
             >
               <IconExternalLink className="w-3.5 h-3.5" />
               <span>Open Document</span>
@@ -200,10 +200,10 @@ export default function CitationViewerModal({
             <a
               href={citation.downloadUrl}
               download
-              className="px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 font-semibold text-xs transition flex items-center gap-1.5 shadow-sm"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white text-black hover:bg-zinc-200 font-semibold text-xs transition flex items-center gap-1.5 shadow-sm"
             >
               <IconDownload className="w-3.5 h-3.5" />
-              <span>Download Source</span>
+              <span>Download</span>
             </a>
           </div>
         </div>
