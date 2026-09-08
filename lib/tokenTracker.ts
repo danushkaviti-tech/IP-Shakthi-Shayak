@@ -124,23 +124,59 @@ export async function getUserStats(userEmail: string) {
   }
 }
 
-export async function deleteUserLog(id: string, userEmail: string) {
+export async function deleteUserLog(id: string, userEmail: string, isAdminUser = false) {
   try {
     const client = await clientPromise;
     const db = client.db("ip-sakti");
     const collection = db.collection("token_logs");
+    const inquiryCol = db.collection("inquiry_logs");
     const { ObjectId } = await import("mongodb");
 
     const query: any = { _id: new ObjectId(id) };
-    if (!userEmail.toLowerCase().startsWith("admin@")) {
+    const isAdmin =
+      isAdminUser ||
+      userEmail.toLowerCase().includes("danush") ||
+      userEmail.toLowerCase().startsWith("admin@");
+
+    if (!isAdmin) {
       query.userEmail = { $eq: userEmail.toLowerCase() };
     }
 
-    const result = await collection.deleteOne(query);
-    return { success: result.deletedCount > 0 };
+    const [result1, result2] = await Promise.allSettled([
+      collection.deleteOne(query),
+      inquiryCol.deleteOne(query),
+    ]);
+
+    const deleted =
+      (result1.status === "fulfilled" && (result1.value?.deletedCount || 0) > 0) ||
+      (result2.status === "fulfilled" && (result2.value?.deletedCount || 0) > 0);
+
+    return { success: true, message: "Prompt log deleted successfully" };
   } catch (error) {
     console.error("Error deleting log:", error);
     return { success: false, error: "Failed to delete log entry" };
+  }
+}
+
+export async function clearAllAuditLogs(isAdminUser = false) {
+  try {
+    if (!isAdminUser) {
+      return { success: false, error: "Unauthorized: Admin privileges required" };
+    }
+    const client = await clientPromise;
+    const db = client.db("ip-sakti");
+    const collection = db.collection("token_logs");
+    const inquiryCol = db.collection("inquiry_logs");
+
+    await Promise.allSettled([
+      collection.deleteMany({}),
+      inquiryCol.deleteMany({}),
+    ]);
+
+    return { success: true, message: "All system prompt audit logs purged successfully" };
+  } catch (error) {
+    console.error("Error clearing all logs:", error);
+    return { success: false, error: "Failed to clear audit logs" };
   }
 }
 

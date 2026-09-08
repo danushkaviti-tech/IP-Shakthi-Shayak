@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getUserStats, getAdminStats, deleteUserLog } from "@/lib/tokenTracker";
+import { getUserStats, getAdminStats, deleteUserLog, clearAllAuditLogs } from "@/lib/tokenTracker";
 import clientPromise from "@/lib/mongodb";
 
 export async function GET(req: NextRequest) {
@@ -84,16 +84,26 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     const type = searchParams.get("type");
+    const action = searchParams.get("action");
+    const isAdmin = userRole === "admin" || email.toLowerCase().includes("danush");
 
-    if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+    // Purge all audit logs
+    if (action === "clear_all_logs" || type === "all_logs") {
+      if (!session?.user || !isAdmin) {
+        return NextResponse.json({ success: false, error: "Forbidden: Admin privileges required" }, { status: 403 });
+      }
+      const result = await clearAllAuditLogs(true);
+      return NextResponse.json(result);
     }
 
     // If deleting a user account
     if (type === "user") {
-      const isAdmin = userRole === "admin" || email.toLowerCase().includes("danush");
       if (!session?.user || !isAdmin) {
         return NextResponse.json({ success: false, error: "Forbidden: Admin access required" }, { status: 403 });
+      }
+
+      if (!id) {
+        return NextResponse.json({ success: false, error: "User ID is required" }, { status: 400 });
       }
 
       const client = await clientPromise;
@@ -114,8 +124,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: true, message: "User deleted successfully" });
     }
 
-    // Deleting inquiry log
-    const result = await deleteUserLog(id, email);
+    if (!id) {
+      return NextResponse.json({ success: false, error: "Log ID is required" }, { status: 400 });
+    }
+
+    // Deleting prompt inquiry log
+    const result = await deleteUserLog(id, email, isAdmin);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error deleting item:", error);

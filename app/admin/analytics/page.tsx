@@ -231,6 +231,64 @@ export default function AdminAnalyticsPage() {
     }
   }
 
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+  const [clearingLogs, setClearingLogs] = useState(false);
+  const [logActionStatus, setLogActionStatus] = useState<string>("");
+
+  async function deleteAuditLog(logId: string) {
+    if (!logId) return;
+    setDeletingLogId(logId);
+    setLogActionStatus("Deleting prompt log from database...");
+
+    try {
+      const res = await fetch(`/api/stats?id=${encodeURIComponent(logId)}`, {
+        method: "DELETE",
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || "Failed to delete prompt log");
+      }
+
+      setLogActionStatus("✓ Prompt audit entry deleted successfully.");
+      await fetchAdminStats();
+    } catch (err) {
+      console.error("Delete log error:", err);
+      alert(err instanceof Error ? err.message : "Error deleting prompt log");
+    } finally {
+      setDeletingLogId(null);
+      setTimeout(() => setLogActionStatus(""), 4000);
+    }
+  }
+
+  async function clearAllAuditLogs() {
+    const confirmed = window.confirm(
+      "Are you sure you want to permanently delete ALL prompt query history and audit logs from the database?"
+    );
+    if (!confirmed) return;
+
+    setClearingLogs(true);
+    setLogActionStatus("Purging all prompt inquiry logs...");
+
+    try {
+      const res = await fetch("/api/stats?action=clear_all_logs", {
+        method: "DELETE",
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || "Failed to clear prompt logs");
+      }
+
+      setLogActionStatus("✓ All prompt inquiry history cleared successfully.");
+      await fetchAdminStats();
+    } catch (err) {
+      console.error("Clear logs error:", err);
+      alert(err instanceof Error ? err.message : "Error clearing logs");
+    } finally {
+      setClearingLogs(false);
+      setTimeout(() => setLogActionStatus(""), 5000);
+    }
+  }
+
   async function uploadPDF(file: File) {
     if (uploading) return;
     setUploading(true);
@@ -933,31 +991,70 @@ export default function AdminAnalyticsPage() {
         {/* TAB 4: AUDIT LOG */}
         {activeTab === "audit" && (
           <div className="p-6 rounded-2xl border border-[#1b1b26] bg-[#0c0c12] shadow-sm space-y-4">
-            <h2 className="text-sm font-semibold text-white">Real-Time System Query Audit Log</h2>
-            <p className="text-xs text-zinc-500 font-mono">
-              Chronological execution log of queries processed through the LangGraph RAG pipeline.
-            </p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <span>Real-Time System Query Audit Log</span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#181822] text-zinc-400 text-[10px] font-mono border border-[#22222e]">
+                    {stats.recentLogs?.length || 0} entries
+                  </span>
+                </h2>
+                <p className="text-xs text-zinc-500 font-mono mt-0.5">
+                  Chronological execution log of user prompts and queries processed through the LangGraph RAG pipeline.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchAdminStats}
+                  className="text-xs text-zinc-400 hover:text-white px-2.5 py-1 rounded-lg bg-[#14141c] border border-[#22222e] flex items-center gap-1.5 transition"
+                >
+                  <IconRefresh className="w-3.5 h-3.5" />
+                  <span>Refresh</span>
+                </button>
+
+                {stats.recentLogs?.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearAllAuditLogs}
+                    disabled={clearingLogs}
+                    className="text-xs text-rose-300 hover:text-rose-200 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 flex items-center gap-1.5 transition disabled:opacity-50"
+                  >
+                    <IconTrash className="w-3.5 h-3.5" />
+                    <span>{clearingLogs ? "Purging..." : "Clear All Logs"}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {logActionStatus && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono animate-in fade-in">
+                {logActionStatus}
+              </div>
+            )}
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[650px] text-left text-xs text-zinc-300">
+              <table className="w-full min-w-[700px] text-left text-xs text-zinc-300">
                 <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-[#1b1b26] font-mono">
                   <tr>
                     <th className="pb-3">User</th>
-                    <th className="pb-3">Query</th>
+                    <th className="pb-3">Query Prompt</th>
                     <th className="pb-3">Language</th>
                     <th className="pb-3">Tokens</th>
                     <th className="pb-3">Latency</th>
                     <th className="pb-3">Timestamp</th>
+                    <th className="pb-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#181822] font-mono">
                   {stats.recentLogs?.length ? (
                     stats.recentLogs.map((log: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-[#101018]">
+                      <tr key={log.id || idx} className="hover:bg-[#101018]">
                         <td className="py-3 text-zinc-300 truncate max-w-[130px]">
                           {log.userEmail}
                         </td>
-                        <td className="py-3 text-white truncate max-w-[240px]">
+                        <td className="py-3 text-white truncate max-w-[240px]" title={log.question}>
                           {log.question}
                         </td>
                         <td className="py-3 text-zinc-400">{log.language}</td>
@@ -966,11 +1063,23 @@ export default function AdminAnalyticsPage() {
                         <td className="py-3 text-zinc-500">
                           {new Date(log.timestamp).toLocaleTimeString()}
                         </td>
+                        <td className="py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => deleteAuditLog(log.id)}
+                            disabled={deletingLogId === log.id}
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 text-[10px] inline-flex items-center gap-1 font-sans transition disabled:opacity-50 cursor-pointer"
+                            title="Delete prompt history record"
+                          >
+                            <IconTrash className="w-3 h-3" />
+                            <span>{deletingLogId === log.id ? "Deleting..." : "Delete"}</span>
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-zinc-500 font-sans">
+                      <td colSpan={7} className="py-6 text-center text-zinc-500 font-sans">
                         No audit logs captured yet.
                       </td>
                     </tr>
