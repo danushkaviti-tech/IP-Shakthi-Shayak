@@ -61,9 +61,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* LOGO */}
         <div className="text-center space-y-2">
-          <div className="inline-flex h-12 w-12 rounded-2xl bg-zinc-100 text-black font-bold items-center justify-center text-lg shadow-xl mb-1">
-            IP
-          </div>
+          <img
+            src="/logo.png"
+            alt="IP-SAKTI Logo"
+            className="inline-block h-14 w-14 rounded-2xl object-contain shadow-2xl mb-1 border border-[#222232]"
+          />
           <h1 className="text-xl font-bold tracking-tight text-white">
             IP-SAKTI Regulatory Intelligence
           </h1>

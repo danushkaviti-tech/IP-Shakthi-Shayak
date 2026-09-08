@@ -4,6 +4,7 @@ strAppPath = WshShell.CurrentDirectory & "\Launch-IP-SAKTI.bat"
 
 Set oShellLink = WshShell.CreateShortcut(strDesktop & "\IP-SAKTI.lnk")
 oShellLink.TargetPath = strAppPath
+oShellLink.IconLocation = WshShell.CurrentDirectory & "\app.ico, 0"
 oShellLink.WindowStyle = 1
 oShellLink.Description = "IP-SAKTI • AI Regulatory & Patent Intelligence"
 oShellLink.WorkingDirectory = WshShell.CurrentDirectory

@@ -857,9 +857,11 @@ export default function UserDashboard() {
         <div className="p-3.5 border-b border-[#1a1a22]">
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-2.5">
-              <div className="h-7 w-7 rounded-lg bg-zinc-100 text-black font-bold flex items-center justify-center text-xs shadow-sm">
-                IP
-              </div>
+              <img
+                src="/logo.png"
+                alt="IP-SAKTI Logo"
+                className="h-7 w-7 rounded-lg object-contain shadow-sm border border-[#222232]"
+              />
               <div className="leading-tight">
                 <span className="font-semibold text-xs text-white block">
                   IP-SAKTI RAG
