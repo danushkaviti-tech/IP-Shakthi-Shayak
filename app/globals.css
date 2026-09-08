@@ -58,19 +58,68 @@ body {
 }
 
 @keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: 0; transform: scaleY(0.7); }
 }
 
 .writing-cursor {
   display: inline-block;
-  width: 6px;
-  height: 15px;
-  background-color: #ffffff;
-  margin-left: 2px;
+  width: 7px;
+  height: 16px;
+  background: linear-gradient(180deg, #ffffff, #a1a1aa);
+  margin-left: 3px;
   vertical-align: -2px;
-  border-radius: 1px;
-  animation: cursor-blink 0.75s infinite;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
+  animation: cursor-blink 0.7s infinite;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
 }
+
+@keyframes spin-slow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spin-reverse-slow {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(0.96); opacity: 0.75; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 2.8s linear infinite;
+}
+
+.animate-spin-reverse-slow {
+  animation: spin-reverse-slow 2.2s linear infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+}
+
+.shimmer-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-sweep::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  animation: shimmer-sweep 2s infinite;
+}
+
 
