@@ -76,19 +76,6 @@ export default function LoginPage() {
 
         {/* LOGIN CARD */}
         <div className="rounded-2xl border border-[#1e1e28] bg-[#0e0e14] p-6 sm:p-8 shadow-2xl space-y-6">
-          {/* CREDENTIALS INFO BADGE */}
-          <div className="p-3.5 rounded-xl border border-[#222230] bg-[#12121a] space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
-              <IconShield className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Admin Authentication Required</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 font-mono">
-              Admin Login ID: <span className="text-white font-semibold">danush</span>
-              <br />
-              Admin Password: <span className="text-white font-semibold">Danush@2026</span> (or <span className="text-white">danush123</span>)
-            </p>
-          </div>
-
           {/* CREDENTIALS FORM */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -97,7 +84,7 @@ export default function LoginPage() {
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="danush or researcher@ipsakti.gov.in"
+                placeholder="Enter your username or email"
                 required
                 autoComplete="username"
                 className="mt-1.5 w-full rounded-xl border border-[#1e1e28] bg-[#070709] px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 transition font-sans"
