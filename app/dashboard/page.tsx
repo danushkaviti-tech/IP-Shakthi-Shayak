@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
 import VoiceAssistant from "@/src/components/VoiceAssistant";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import CitationViewerModal, { CitationData } from "@/src/components/CitationViewerModal";
@@ -21,9 +20,9 @@ import {
   IconMenu,
   IconX,
   IconScale,
+  IconDatabase,
   IconSearch,
   IconTrash,
-  IconCpu,
 } from "@/src/components/Icons";
 
 interface AttachedFile {
@@ -38,15 +37,7 @@ interface AttachedFile {
 interface Message {
   role: "user" | "assistant";
   content: string;
-  type?: "rag" | "conversation" | "guardrail_blocked";
-  guardrail?: {
-    isBlocked: boolean;
-    reason?: string;
-    category?: string;
-    disclaimer?: string;
-    explanation?: string;
-  };
-  attachedFiles?: { name: string; size: number; efficiencyScore?: number; chunks?: number }[];
+  attachedFiles?: { name: string; size: number }[];
   sources?: CitationData[];
   classification?: any;
   accuracyScore?: number;
@@ -59,13 +50,6 @@ interface Message {
   };
 }
 
-interface ChatSession {
-  id: string;
-  title: string;
-  updatedAt: string;
-  language: string;
-}
-
 export default function UserDashboard() {
   const [user, setUser] = useState<any>(null);
   const [question, setQuestion] = useState("");
@@ -73,12 +57,8 @@ export default function UserDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [language, setLanguage] = useState("English");
+  const [autoReadVoice, setAutoReadVoice] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
-  // Chat sessions state (ChatGPT workflow)
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [sessionLoading, setSessionLoading] = useState(false);
 
   // Attached files state
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -90,10 +70,10 @@ export default function UserDashboard() {
   const [citationModalOpen, setCitationModalOpen] = useState(false);
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
 
-  // Mobile drawer sidebar state
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sidebar toggle
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // User inquiries history & stats
+  // Stats
   const [userStats, setUserStats] = useState<any>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -102,7 +82,6 @@ export default function UserDashboard() {
   useEffect(() => {
     loadSession();
     fetchUserStats();
-    fetchChatSessions();
   }, []);
 
   useEffect(() => {
@@ -112,7 +91,7 @@ export default function UserDashboard() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
     }
   }, [question]);
 
@@ -144,58 +123,6 @@ export default function UserDashboard() {
     }
   }
 
-  async function fetchChatSessions() {
-    try {
-      const res = await fetch("/api/chats");
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.success) {
-          setSessions(data.sessions || []);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load chat sessions:", err);
-    }
-  }
-
-  async function loadChatSession(sessionId: string) {
-    if (sessionLoading || sessionId === currentSessionId) return;
-    setSessionLoading(true);
-    try {
-      const res = await fetch(`/api/chats?id=${encodeURIComponent(sessionId)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.success && data.session) {
-          setCurrentSessionId(data.session.id);
-          setMessages(data.session.messages || []);
-          if (data.session.language) {
-            setLanguage(data.session.language);
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load session messages:", err);
-    } finally {
-      setSessionLoading(false);
-      setSidebarOpen(false);
-    }
-  }
-
-  async function deleteChatSession(e: React.MouseEvent, sessionId: string) {
-    e.stopPropagation();
-    try {
-      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-      if (currentSessionId === sessionId) {
-        startNewChat();
-      }
-      await fetch(`/api/chats?id=${encodeURIComponent(sessionId)}`, {
-        method: "DELETE",
-      });
-    } catch (err) {
-      console.error("Failed to delete session:", err);
-    }
-  }
-
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -220,7 +147,7 @@ export default function UserDashboard() {
           const uploadRes = await res.json();
           efficiencyScore = uploadRes.efficiencyScore || 96.5;
           chunks = uploadRes.totalChunks || 1;
-          content = `Attached and Indexed PDF: ${file.name} (${chunks} chunks • ${efficiencyScore}% chunking score)`;
+          content = `Attached and Indexed PDF: ${file.name} (${chunks} chunks • ${efficiencyScore}% score)`;
         } else {
           content = await file.text();
           const words = content.split(/\s+/).length;
@@ -263,21 +190,15 @@ export default function UserDashboard() {
     const userMsg: Message = {
       role: "user",
       content: queryText,
-      attachedFiles: currentFiles.map((f) => ({
-        name: f.name,
-        size: f.size,
-        efficiencyScore: f.efficiencyScore,
-        chunks: f.chunks,
-      })),
+      attachedFiles: currentFiles.map((f) => ({ name: f.name, size: f.size })),
     };
 
-    const newMessagesList = [...messages, userMsg];
-    setMessages(newMessagesList);
+    setMessages((prev) => [...prev, userMsg]);
     setQuestion("");
     setAttachedFiles([]);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
-    // Build short-term conversation context
+    // Build short-term memory history
     const chatHistory = messages.slice(-6).map((m) => ({
       role: m.role,
       content: m.content,
@@ -291,7 +212,6 @@ export default function UserDashboard() {
           question: queryText,
           language,
           chatHistory,
-          sessionId: currentSessionId,
           attachedFiles: currentFiles.map((f) => ({
             name: f.name,
             content: f.content,
@@ -306,16 +226,13 @@ export default function UserDashboard() {
       }
 
       const sourceCount = data.sources?.length || 0;
-      const isBlocked = data.type === "guardrail_blocked" || data.guardrail?.isBlocked;
-      const baseAccuracy = isBlocked ? 99.9 : data.type === "rag" ? 96.5 : 99.4;
+      const baseAccuracy = data.type === "rag" ? 96.5 : 99.4;
       const accuracyScore = Math.min(99.8, Number((baseAccuracy + sourceCount * 0.9).toFixed(1)));
       const similarityIndex = Number((0.925 + Math.min(sourceCount * 0.015, 0.07)).toFixed(3));
 
       const assistantMsg: Message = {
         role: "assistant",
         content: data.answer,
-        type: data.type,
-        guardrail: data.guardrail,
         sources: data.sources || [],
         classification: data.classification,
         accuracyScore,
@@ -324,29 +241,11 @@ export default function UserDashboard() {
           promptTokens: data.promptTokens || 0,
           completionTokens: data.completionTokens || 0,
           totalTokens: data.totalTokens || 0,
-          latencyMs: data.latencyMs || 820,
+          latencyMs: data.latencyMs || 0,
         },
       };
 
-      const finalMessagesList = [...newMessagesList, assistantMsg];
-      setMessages(finalMessagesList);
-
-      // Auto-save session into ChatGPT-style session store
-      const activeId = currentSessionId || data.sessionId || `session-${Date.now()}`;
-      setCurrentSessionId(activeId);
-
-      fetch("/api/chats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: activeId,
-          messages: finalMessagesList,
-          language,
-        }),
-      })
-        .then(() => fetchChatSessions())
-        .catch((e) => console.warn("Chat session save warning:", e));
-
+      setMessages((prev) => [...prev, assistantMsg]);
       fetchUserStats();
     } catch (err) {
       console.error(err);
@@ -378,12 +277,31 @@ export default function UserDashboard() {
     setMessages((prev) => prev.filter((_, i) => i !== index));
   }
 
+  async function deleteInquiryLog(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    try {
+      setUserStats((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          recentLogs: (prev.recentLogs || []).filter((l: any) => l.id !== id),
+          totalQueries: Math.max(0, (prev.totalQueries || 1) - 1),
+        };
+      });
+
+      await fetch(`/api/stats?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.error("Failed to delete log:", err);
+    }
+  }
+
   function handleLogout() {
     signOut({ callbackUrl: "/login" });
   }
 
   function startNewChat() {
-    setCurrentSessionId(null);
     setMessages([]);
     setAttachedFiles([]);
     setQuestion("");
@@ -395,26 +313,8 @@ export default function UserDashboard() {
     user?.email?.toLowerCase() === "admin@ipsakti.gov.in" ||
     user?.email?.toLowerCase().startsWith("admin@");
 
-  // Group chat sessions by date
-  const now = new Date();
-  const todaySessions: ChatSession[] = [];
-  const pastWeekSessions: ChatSession[] = [];
-  const olderSessions: ChatSession[] = [];
-
-  sessions.forEach((s) => {
-    const sDate = new Date(s.updatedAt);
-    const diffDays = (now.getTime() - sDate.getTime()) / (1000 * 3600 * 24);
-    if (diffDays < 1) {
-      todaySessions.push(s);
-    } else if (diffDays < 7) {
-      pastWeekSessions.push(s);
-    } else {
-      olderSessions.push(s);
-    }
-  });
-
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full bg-[#070709] text-[#f4f4f7] flex font-sans selection:bg-zinc-800 selection:text-white overflow-hidden relative">
+    <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex font-sans selection:bg-zinc-800 selection:text-white overflow-hidden">
       {/* CITATION VIEWER MODAL */}
       <CitationViewerModal
         citation={selectedCitation}
@@ -423,21 +323,13 @@ export default function UserDashboard() {
         highlightKeyword={activeSearchQuery}
       />
 
-      {/* MOBILE BACKDROP OVERLAY */}
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-black/80 backdrop-blur-xs z-40 lg:hidden transition-opacity"
-        />
-      )}
-
-      {/* EXECUTIVE CHATGPT-STYLE SESSIONS SIDEBAR */}
+      {/* STATE-OF-THE-ART EXECUTIVE SIDEBAR */}
       <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 z-50 h-full w-72 lg:w-64 bg-[#0c0c10] border-r border-[#1a1a22] flex flex-col shrink-0 transition-transform duration-200 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+        className={`${
+          sidebarOpen ? "w-64" : "w-0 -translate-x-full"
+        } lg:translate-x-0 transition-all duration-200 ease-in-out bg-[#0c0c10] border-r border-[#1a1a22] flex flex-col shrink-0 z-40 fixed lg:static h-full h-screen`}
       >
-        {/* SIDEBAR TOP BRAND */}
+        {/* SIDEBAR HEADER */}
         <div className="p-3.5 border-b border-[#1a1a22]">
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-2.5">
@@ -446,29 +338,23 @@ export default function UserDashboard() {
               </div>
               <div className="leading-tight">
                 <span className="font-semibold text-xs text-white block">
-                  IP-SAKTI Sahayak
+                  IP-SAKTI RAG
                 </span>
-                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Agentic RAG v2.6
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  Enterprise v2.5
                 </span>
               </div>
             </div>
             <button
-              type="button"
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-[#181822]"
+              className="lg:hidden text-zinc-400 hover:text-white p-1"
             >
               <IconX className="w-4 h-4" />
             </button>
           </div>
 
           <button
-            type="button"
-            onClick={() => {
-              startNewChat();
-              setSidebarOpen(false);
-            }}
+            onClick={startNewChat}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#14141a] hover:bg-[#1a1a22] border border-[#22222c] hover:border-zinc-600 text-xs font-medium text-white transition shadow-sm group"
           >
             <span className="flex items-center gap-2">
@@ -479,32 +365,32 @@ export default function UserDashboard() {
           </button>
         </div>
 
-        {/* SIDEBAR RECENT CHATS (CHATGPT-STYLE MEMORY SESSIONS) */}
+        {/* SIDEBAR QUERY HISTORY */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* TODAY SESSIONS */}
-          {todaySessions.length > 0 && (
-            <div>
-              <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono mb-1.5">
-                Today
-              </p>
+          <div>
+            <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono mb-2">
+              Recent Inquiries
+            </p>
+            {userStats?.recentLogs?.length ? (
               <div className="space-y-1">
-                {todaySessions.map((s) => (
+                {userStats.recentLogs.slice(0, 15).map((log: any, idx: number) => (
                   <div
-                    key={s.id}
-                    onClick={() => loadChatSession(s.id)}
-                    className={`group flex items-center justify-between w-full rounded-lg px-2.5 py-1.5 text-xs transition cursor-pointer ${
-                      currentSessionId === s.id
-                        ? "bg-[#181824] text-white border border-[#2c2c3e]"
-                        : "text-zinc-300 hover:bg-[#15151c] hover:text-white"
-                    }`}
+                    key={log.id || idx}
+                    className="group flex items-center justify-between w-full rounded-lg hover:bg-[#15151c] pr-1.5 transition"
                   >
-                    <span className="truncate text-[11px] font-medium min-w-0 pr-1">
-                      {s.title}
-                    </span>
+                    <button
+                      onClick={() => askAI(log.question)}
+                      className="flex-1 text-left px-2.5 py-1.5 text-xs text-zinc-300 group-hover:text-white truncate block min-w-0"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="h-1.5 w-1.5 rounded-full bg-zinc-600 group-hover:bg-zinc-300 shrink-0" />
+                        <span className="truncate text-[11px]">{log.question}</span>
+                      </div>
+                    </button>
                     <button
                       type="button"
-                      onClick={(e) => deleteChatSession(e, s.id)}
-                      title="Delete chat session"
+                      onClick={(e) => deleteInquiryLog(e, log.id)}
+                      title="Delete from history"
                       className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 rounded hover:bg-[#1f1f2a] transition shrink-0"
                     >
                       <IconTrash className="w-3 h-3" />
@@ -512,87 +398,14 @@ export default function UserDashboard() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* PREVIOUS 7 DAYS */}
-          {pastWeekSessions.length > 0 && (
-            <div>
-              <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono mb-1.5">
-                Previous 7 Days
+            ) : (
+              <p className="px-2 text-xs text-zinc-600 font-mono text-[11px]">
+                No recent inquiries.
               </p>
-              <div className="space-y-1">
-                {pastWeekSessions.map((s) => (
-                  <div
-                    key={s.id}
-                    onClick={() => loadChatSession(s.id)}
-                    className={`group flex items-center justify-between w-full rounded-lg px-2.5 py-1.5 text-xs transition cursor-pointer ${
-                      currentSessionId === s.id
-                        ? "bg-[#181824] text-white border border-[#2c2c3e]"
-                        : "text-zinc-300 hover:bg-[#15151c] hover:text-white"
-                    }`}
-                  >
-                    <span className="truncate text-[11px] font-medium min-w-0 pr-1">
-                      {s.title}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => deleteChatSession(e, s.id)}
-                      title="Delete chat session"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 rounded hover:bg-[#1f1f2a] transition shrink-0"
-                    >
-                      <IconTrash className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* OLDER SESSIONS */}
-          {olderSessions.length > 0 && (
-            <div>
-              <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono mb-1.5">
-                Older Consultations
-              </p>
-              <div className="space-y-1">
-                {olderSessions.map((s) => (
-                  <div
-                    key={s.id}
-                    onClick={() => loadChatSession(s.id)}
-                    className={`group flex items-center justify-between w-full rounded-lg px-2.5 py-1.5 text-xs transition cursor-pointer ${
-                      currentSessionId === s.id
-                        ? "bg-[#181824] text-white border border-[#2c2c3e]"
-                        : "text-zinc-300 hover:bg-[#15151c] hover:text-white"
-                    }`}
-                  >
-                    <span className="truncate text-[11px] font-medium min-w-0 pr-1">
-                      {s.title}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => deleteChatSession(e, s.id)}
-                      title="Delete chat session"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 rounded hover:bg-[#1f1f2a] transition shrink-0"
-                    >
-                      <IconTrash className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {sessions.length === 0 && (
-            <div className="p-3 text-center rounded-xl bg-[#0e0e14] border border-[#1b1b26]">
-              <p className="text-xs text-zinc-400 font-medium">No saved sessions</p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">
-                New multi-turn chats will be stored here with memory.
-              </p>
-            </div>
-          )}
-
-          {/* STATUTORY FRAMEWORKS PRESETS */}
+          {/* DOMAIN MODULES */}
           <div>
             <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono mb-2">
               Statutory Frameworks
@@ -605,12 +418,8 @@ export default function UserDashboard() {
                 { title: "AYUSH Licensing Guidelines", desc: "Regulatory Compliance" },
               ].map((preset, idx) => (
                 <button
-                  type="button"
                   key={idx}
-                  onClick={() => {
-                    askAI(preset.title);
-                    setSidebarOpen(false);
-                  }}
+                  onClick={() => askAI(preset.title)}
                   className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-[#15151c] border border-transparent hover:border-[#22222c] text-[11px] text-zinc-300 transition block group"
                 >
                   <p className="font-medium text-zinc-200 group-hover:text-white truncate">
@@ -623,7 +432,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* SIDEBAR FOOTER */}
+        {/* SIDEBAR FOOTER: ADMIN PORTAL SHORTCUT & USER INFO */}
         <div className="p-3 border-t border-[#1a1a22] space-y-2 bg-[#0a0a0e]">
           {isAdmin && (
             <Link
@@ -638,110 +447,144 @@ export default function UserDashboard() {
             </Link>
           )}
 
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="h-6 w-6 rounded-full bg-[#1b1b26] text-zinc-300 text-[10px] font-bold flex items-center justify-center shrink-0 border border-[#2b2b3b]">
-                {user?.name?.[0]?.toUpperCase() || "U"}
+          <div className="flex items-center justify-between pt-1 px-1">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-7 w-7 rounded-lg bg-[#181820] border border-[#262634] flex items-center justify-center font-bold text-xs text-white shrink-0">
+                {user?.name?.charAt(0).toUpperCase() || "U"}
               </div>
-              <span className="text-[11px] font-medium text-zinc-300 truncate">
-                {user?.name || "IP Professional"}
-              </span>
+              <div className="min-w-0">
+                <p className="font-medium text-xs text-zinc-200 truncate">
+                  {user?.name || "Researcher"}
+                </p>
+                <p className="text-[10px] text-zinc-500 truncate font-mono">
+                  {user?.email || "user@ipsakti.gov.in"}
+                </p>
+              </div>
             </div>
+
             <button
-              type="button"
               onClick={handleLogout}
-              className="text-[10px] text-zinc-400 hover:text-rose-400 font-mono transition"
+              title="Sign out"
+              className="text-xs text-zinc-400 hover:text-rose-400 px-2 py-1 transition"
             >
-              Sign Out
+              Sign out
             </button>
           </div>
         </div>
       </aside>
 
-      {/* MAIN CHAT AREA */}
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-[#070709] relative">
-        {/* HEADER BAR */}
-        <header className="h-14 border-b border-[#181822] flex items-center justify-between px-3.5 sm:px-6 bg-[#0a0a0e]/95 backdrop-blur-md z-30 shrink-0">
+      {/* MAIN CONVERSATIONAL WORKSPACE */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#070709] relative">
+        {/* TOP STATUS BAR */}
+        <header className="h-14 border-b border-[#181820] bg-[#070709]/90 backdrop-blur-md px-4 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-[#14141c] border border-[#22222e]"
-              aria-label="Open navigation sidebar"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-1.5 rounded-lg bg-[#121218] border border-[#1f1f2a] hover:bg-[#1a1a24] text-zinc-400 hover:text-white transition"
+              title="Toggle sidebar"
             >
               <IconMenu className="w-4 h-4" />
             </button>
+
             <div className="flex items-center gap-2">
-              <h1 className="text-xs sm:text-sm font-semibold text-white truncate flex items-center gap-1.5">
-                <span>IP-SAKTI Sahayak</span>
-                <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                  Guardrails Active
-                </span>
-              </h1>
+              <span className="font-semibold text-xs tracking-tight text-white">
+                IP-SAKTI Intelligence
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#14141c] text-emerald-400 border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                LangGraph StateGraph
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <LanguageSelector
-              value={language}
-              onChange={(l: string) => setLanguage(l)}
-            />
+          <div className="flex items-center gap-2.5">
+            {isAdmin && (
+              <Link
+                href="/admin/analytics"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-zinc-100 text-black font-semibold text-xs hover:bg-zinc-200 transition shadow-sm"
+              >
+                <IconShield className="w-3.5 h-3.5" />
+                <span>Admin Portal</span>
+              </Link>
+            )}
+
             <PWAInstallButton />
+
+            <LanguageSelector value={language} onChange={setLanguage} />
+
+            <label className="hidden md:flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoReadVoice}
+                onChange={(e) => setAutoReadVoice(e.target.checked)}
+                className="rounded border-zinc-700 bg-zinc-900 text-white focus:ring-0 accent-white"
+              />
+              <span className="text-[11px] font-mono">Auto Read Aloud</span>
+            </label>
+
+            {messages.length > 0 && (
+              <button
+                onClick={startNewChat}
+                className="text-xs text-zinc-400 hover:text-zinc-200 transition px-2 py-1 font-mono"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </header>
 
-        {/* CHAT MESSAGES SCROLL CONTAINER */}
-        <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 py-4 space-y-4">
-          <div className="max-w-3xl mx-auto space-y-4">
-            {/* EMPTY STATE BANNER */}
+        {/* MESSAGES SCROLL STREAM */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-0 py-6">
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* HERO LAUNCH SCREEN IF EMPTY */}
             {messages.length === 0 && (
-              <div className="py-8 sm:py-12 text-center space-y-4">
-                <div className="h-12 w-12 rounded-2xl bg-[#12121a] border border-[#222230] flex items-center justify-center mx-auto shadow-inner text-white">
-                  <IconSparkles className="w-6 h-6 text-zinc-300" />
+              <div className="py-10 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="h-14 w-14 rounded-2xl bg-zinc-100 text-black flex items-center justify-center font-bold text-lg shadow-lg">
+                  IP
                 </div>
-                <div className="space-y-1 max-w-md mx-auto">
-                  <h2 className="text-base sm:text-lg font-semibold text-white">
-                    Agentic IP & Regulatory Sahayak
+
+                <div className="space-y-1.5 max-w-lg">
+                  <h2 className="text-xl font-bold tracking-tight text-white">
+                    IP-SAKTI Regulatory & Patent Intelligence
                   </h2>
-                  <p className="text-xs sm:text-sm text-zinc-400">
-                    Query Indian & International IP statutes, TKDL prior art, AYUSH regulations, or audit claim documents with multi-turn memory and security guardrails.
+                  <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                    Autonomous RAG pipeline evaluating Indian & Global patent acts, TKDL prior-art formulation repositories, and AYUSH regulatory compliance.
                   </p>
                 </div>
 
-                {/* SUGGESTION TILES */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 max-w-xl mx-auto">
+                {/* SUGGESTION MODULES */}
+                <div className="grid sm:grid-cols-2 gap-3 w-full max-w-xl text-left">
                   {[
                     {
-                      title: "Section 3(p) Patent Bar",
-                      subtitle: "Ayurvedic polyherbal formulation rules",
-                      prompt: "Explain Section 3(p) under the Patents Act 1970 and how to demonstrate synergy for an Ayurvedic polyherbal formulation.",
+                      title: "Section 3(p) Patent Evaluation",
+                      subtitle: "Statutory bar on Ayurvedic traditional components",
+                      prompt: "Can an Ayurvedic formulation be patented under Section 3(p) of the Indian Patents Act 1970?",
                     },
                     {
-                      title: "TKDL Prior Art Regulations",
-                      subtitle: "Defense against biopiracy guidelines",
+                      title: "TKDL Prior-Art Verification",
+                      subtitle: "Defensive defense against biopiracy and novelty loss",
                       prompt: "What are Traditional Knowledge Digital Library (TKDL) provisions and prior-art regulations?",
                     },
                     {
-                      title: "Geographical Indication (GI)",
-                      subtitle: "Herbal and botanical registration",
+                      title: "Geographical Indication (GI) Tag",
+                      subtitle: "Registration process for herbal and plant formulations",
                       prompt: "What is the procedure to register a Geographical Indication (GI) tag for herbal medicine in India?",
                     },
                     {
                       title: "Attach & Audit Claim Document",
-                      subtitle: "Evaluate claims for botanical extract",
-                      prompt: "Explain how to evaluate patent claims for natural botanical extracts under Indian patent guidelines.",
+                      subtitle: "Upload PDF formulation to verify synergism & NBA rules",
+                      prompt: "Explain how to evaluate patent claims for natural botanical extracts.",
                     },
                   ].map((card, i) => (
                     <button
-                      type="button"
                       key={i}
                       onClick={() => askAI(card.prompt)}
-                      className="p-3 rounded-xl border border-[#1b1b24] bg-[#0e0e14] hover:bg-[#14141c] hover:border-zinc-700 text-left transition group active:scale-[0.99]"
+                      className="p-3.5 rounded-xl border border-[#1b1b24] bg-[#0e0e14] hover:bg-[#14141c] hover:border-zinc-700 text-left transition group"
                     >
                       <p className="text-xs font-semibold text-zinc-200 group-hover:text-white">
                         {card.title}
                       </p>
-                      <p className="text-[11px] text-zinc-500 mt-0.5 line-clamp-1">
+                      <p className="text-[11px] text-zinc-500 mt-1 line-clamp-2 leading-normal">
                         {card.subtitle}
                       </p>
                     </button>
@@ -751,229 +594,200 @@ export default function UserDashboard() {
             )}
 
             {/* MESSAGES LIST */}
-            {messages.map((msg, index) => {
-              const isGuardrailBlocked = msg.type === "guardrail_blocked" || msg.guardrail?.isBlocked;
+            {messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`flex gap-3.5 ${
+                  msg.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                {msg.role === "assistant" && (
+                  <div className="h-7 w-7 rounded-lg bg-zinc-100 text-black font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 shadow-sm">
+                    <IconSparkles className="w-3.5 h-3.5 text-black" />
+                  </div>
+                )}
 
-              return (
                 <div
-                  key={index}
-                  className={`flex gap-2 sm:gap-3.5 ${
-                    msg.role === "user" ? "justify-end" : "justify-start"
+                  className={`max-w-[88%] rounded-2xl p-4 md:p-5 shadow-sm ${
+                    msg.role === "user"
+                      ? "bg-[#181822] text-white border border-[#282836] rounded-tr-sm"
+                      : "bg-[#0f0f14] text-zinc-200 border border-[#1c1c26] rounded-tl-sm w-full"
                   }`}
                 >
-                  {msg.role === "assistant" && (
-                    <div className={`h-6 w-6 sm:h-7 sm:w-7 rounded-lg ${isGuardrailBlocked ? "bg-amber-400 text-black" : "bg-zinc-100 text-black"} font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 shadow-sm`}>
-                      {isGuardrailBlocked ? (
-                        <IconShield className="w-3.5 h-3.5 text-black" />
-                      ) : (
-                        <IconSparkles className="w-3.5 h-3.5 text-black" />
-                      )}
+                  {/* USER MESSAGE DELETE ACTION */}
+                  {msg.role === "user" && (
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
+                        You
+                      </span>
+                      <button
+                        onClick={() => deleteMessage(index)}
+                        title="Delete query"
+                        className="text-zinc-500 hover:text-rose-400 transition p-0.5 rounded"
+                      >
+                        <IconTrash className="w-3 h-3" />
+                      </button>
                     </div>
                   )}
 
-                  <div
-                    className={`rounded-2xl p-3.5 sm:p-5 shadow-sm ${
-                      msg.role === "user"
-                        ? "max-w-[90%] sm:max-w-[80%] bg-[#181822] text-white border border-[#282836] rounded-tr-sm"
-                        : isGuardrailBlocked
-                        ? "max-w-full bg-[#14100c] text-amber-100 border border-amber-500/30 rounded-tl-sm w-full"
-                        : "max-w-full bg-[#0f0f14] text-zinc-200 border border-[#1c1c26] rounded-tl-sm w-full"
-                    }`}
-                  >
-                    {/* USER MESSAGE TOP ROW */}
-                    {msg.role === "user" && (
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
-                          You
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => deleteMessage(index)}
-                          title="Delete query"
-                          className="text-zinc-500 hover:text-rose-400 transition p-0.5 rounded"
+                  {/* ATTACHED FILE CHIPS IN USER MESSAGE */}
+                  {msg.attachedFiles && msg.attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3 pb-2.5 border-b border-[#282836]">
+                      {msg.attachedFiles.map((file, fIdx) => (
+                        <span
+                          key={fIdx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#111118] border border-[#22222e] text-[11px] text-zinc-300 font-mono"
                         >
-                          <IconTrash className="w-3 h-3" />
-                        </button>
-                      </div>
-                    )}
+                          <IconFileText className="w-3 h-3 text-zinc-400" />
+                          <span className="font-medium text-white">{file.name}</span>
+                          <span className="text-[10px] text-zinc-500">
+                            ({Math.round(file.size / 1024)} KB)
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                    {/* ATTACHED FILE CHIPS WITH CHUNKING EFFICIENCY SCORE */}
-                    {msg.attachedFiles && msg.attachedFiles.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-[#282836]">
-                        {msg.attachedFiles.map((file, fIdx) => (
+                  {/* MESSAGE BODY */}
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap font-normal">
+                    {msg.content}
+                  </div>
+
+                  {/* CITATIONS & SOURCES CARDS */}
+                  {msg.sources && msg.sources.length > 0 && (
+                    <div className="mt-4 pt-3.5 border-t border-[#1c1c26] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
+                          <IconScale className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>Verified Statutory Sources ({msg.sources.length})</span>
+                        </span>
+                        <span className="text-[10px] text-zinc-500 font-mono">
+                          Inspect & Download
+                        </span>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {msg.sources.map((src, sIdx) => (
                           <div
-                            key={fIdx}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#111118] border border-[#22222e] text-[10px] text-zinc-300 font-mono"
+                            key={sIdx}
+                            onClick={() => openCitation(src)}
+                            className="p-3.5 rounded-xl bg-[#08080c] hover:bg-[#121218] border border-[#1e1e28] hover:border-zinc-700 cursor-pointer transition flex flex-col justify-between space-y-2.5 group shadow-sm"
                           >
-                            <IconFileText className="w-3 h-3 text-zinc-400" />
-                            <span className="font-medium text-white truncate max-w-[120px] sm:max-w-[180px]">
-                              {file.name}
-                            </span>
-                            <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.2 rounded text-[9px]">
-                              🎯 {file.efficiencyScore || 96.5}% Chunking Score
-                            </span>
-                            <span className="text-zinc-500">
-                              ({file.chunks || 1} chunks)
-                            </span>
+                            <div>
+                              <div className="flex items-center justify-between gap-1 mb-1.5">
+                                <span className="font-semibold text-xs text-zinc-100 group-hover:text-white truncate flex items-center gap-1.5">
+                                  <IconFileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                                  <span className="truncate">{src.document}</span>
+                                </span>
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                                  {src.confidence}% Match
+                                </span>
+                              </div>
+
+                              <div className="text-[10px] text-zinc-400 font-mono mb-2">
+                                <span>{src.section}</span>
+                              </div>
+
+                              {/* HIGHLIGHTED POINT EXTRACTED FROM STATUTORY TEXT */}
+                              <div className="p-2.5 rounded-lg bg-[#040406] border border-[#181822] text-[11px] text-zinc-300 leading-relaxed font-sans">
+                                <span className="text-[10px] text-amber-400/90 font-mono block mb-1">
+                                  Cited Grounding Excerpt:
+                                </span>
+                                <mark className="bg-amber-400/20 text-amber-200 px-1 py-0.5 rounded font-medium border border-amber-400/30">
+                                  {src.highlightPoint || src.snippet}
+                                </mark>
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-[#1a1a24] flex items-center justify-between text-[11px] font-mono">
+                              <span className="text-zinc-400 group-hover:text-zinc-200 flex items-center gap-1">
+                                <IconSearch className="w-3 h-3 text-zinc-400" />
+                                <span>Inspect Full Text</span>
+                              </span>
+                              <a
+                                href={src.downloadUrl}
+                                download
+                                onClick={(e) => e.stopPropagation()}
+                                className="px-2.5 py-1 rounded-lg bg-zinc-100 text-black hover:bg-white font-semibold text-[10px] transition shadow-sm flex items-center gap-1.5"
+                                title="Download source document"
+                              >
+                                <IconDownload className="w-3 h-3" />
+                                <span>Download Document</span>
+                              </a>
+                            </div>
                           </div>
                         ))}
                       </div>
-                    )}
-
-                    {/* GUARDRAIL NOTICE BANNER */}
-                    {isGuardrailBlocked && (
-                      <div className="mb-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-200 flex items-center gap-2">
-                        <IconShield className="w-4 h-4 text-amber-400 shrink-0" />
-                        <span>Security Guardrail Enforced: Request flagged under confidentiality/trade secret compliance rules.</span>
-                      </div>
-                    )}
-
-                    {/* MESSAGE BODY WITH REACT MARKDOWN */}
-                    <div className="text-xs sm:text-sm leading-relaxed font-normal break-words prose prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0.5 prose-strong:text-white text-zinc-200">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
+                  )}
 
-                    {/* CITATIONS & SOURCES CARDS */}
-                    {msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-3.5 pt-3 border-t border-[#1c1c26] space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
-                            <IconScale className="w-3.5 h-3.5 text-zinc-400" />
-                            <span>Verified Sources ({msg.sources.length})</span>
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {msg.sources.map((src, sIdx) => (
-                            <div
-                              key={sIdx}
-                              onClick={() => openCitation(src)}
-                              className="p-2.5 sm:p-3 rounded-xl bg-[#08080c] hover:bg-[#121218] border border-[#1e1e28] hover:border-zinc-700 cursor-pointer transition flex flex-col justify-between space-y-2 group shadow-sm active:scale-[0.99]"
-                            >
-                              <div>
-                                <div className="flex items-center justify-between gap-1 mb-1">
-                                  <span className="font-semibold text-xs text-zinc-100 group-hover:text-white truncate flex items-center gap-1.5">
-                                    <IconFileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                                    <span className="truncate">{src.document}</span>
-                                  </span>
-                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-                                    {src.confidence}%
-                                  </span>
-                                </div>
-
-                                <div className="text-[10px] text-zinc-400 font-mono mb-1">
-                                  <span>{src.section}</span>
-                                </div>
-
-                                <div className="p-2 rounded-lg bg-[#040406] border border-[#181822] text-[10px] sm:text-[11px] text-zinc-300 leading-relaxed">
-                                  <mark className="bg-amber-400/20 text-amber-200 px-1 py-0.5 rounded font-medium border border-amber-400/30 block break-words">
-                                    {src.highlightPoint || src.snippet}
-                                  </mark>
-                                </div>
-                              </div>
-
-                              <div className="pt-2 border-t border-[#1a1a24] flex items-center justify-between text-[10px] font-mono">
-                                <span className="text-zinc-400 group-hover:text-zinc-200 flex items-center gap-1">
-                                  <IconSearch className="w-3 h-3 text-zinc-400" />
-                                  <span>Inspect</span>
-                                </span>
-                                <a
-                                  href={src.downloadUrl}
-                                  download
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="px-2 py-0.5 rounded-lg bg-zinc-100 text-black hover:bg-white font-semibold text-[10px] transition shadow-sm flex items-center gap-1"
-                                  title="Download source document"
-                                >
-                                  <IconDownload className="w-3 h-3" />
-                                  <span>Download</span>
-                                </a>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                  {/* ASSISTANT TELEMETRY & ACTION BAR */}
+                  {msg.role === "assistant" && (
+                    <div className="mt-4 pt-3 border-t border-[#1c1c26] flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 font-mono">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
+                          ⚡ {msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s calculation time` : "0.85s calculation time"}
+                        </span>
+                        <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                          Grounding: {msg.accuracyScore ?? 98.4}%
+                        </span>
+                        {msg.tokens && (
+                          <span className="hidden sm:inline">Tokens: {msg.tokens.totalTokens}</span>
+                        )}
                       </div>
-                    )}
 
-                    {/* ASSISTANT TELEMETRY: PROMPT LATENCY & ACTION BAR */}
-                    {msg.role === "assistant" && (
-                      <div className="mt-3.5 pt-2.5 border-t border-[#1c1c26] flex items-center justify-between gap-2 text-[10px] text-zinc-400 font-mono flex-wrap">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {/* PROMPT CALCULATION LATENCY BADGE */}
-                          <span className="text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded flex items-center gap-1 font-semibold">
-                            <span className="text-cyan-400">⚡</span>
-                            <span>
-                              {msg.tokens?.latencyMs
-                                ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s calculation time`
-                                : "0.85s calculation time"}
-                            </span>
-                          </span>
-
-                          <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-                            Grounding: {msg.accuracyScore ?? 98.4}%
-                          </span>
-
-                          {msg.tokens && (
-                            <span className="text-zinc-500 hidden sm:inline-block">
-                              {msg.tokens.totalTokens} tokens
-                            </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => copyMessage(msg.content, index)}
+                          className="px-2 py-1 rounded hover:bg-[#181822] text-zinc-400 hover:text-white transition flex items-center gap-1"
+                        >
+                          {copiedIndex === index ? (
+                            <>
+                              <IconCheck className="w-3 h-3 text-emerald-400" />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <IconCopy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </>
                           )}
-                        </div>
+                        </button>
 
-                        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => copyMessage(msg.content, index)}
-                            className="px-2 py-1 rounded hover:bg-[#181822] text-zinc-400 hover:text-white transition flex items-center gap-1 active:scale-95"
-                          >
-                            {copiedIndex === index ? (
-                              <>
-                                <IconCheck className="w-3 h-3 text-emerald-400" />
-                                <span>Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <IconCopy className="w-3 h-3" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
+                        <button
+                          onClick={() => deleteMessage(index)}
+                          title="Delete response"
+                          className="px-2 py-1 rounded hover:bg-[#181822] text-zinc-500 hover:text-rose-400 transition flex items-center gap-1"
+                        >
+                          <IconTrash className="w-3 h-3" />
+                          <span>Delete</span>
+                        </button>
 
-                          <button
-                            type="button"
-                            onClick={() => deleteMessage(index)}
-                            title="Delete response"
-                            className="px-2 py-1 rounded hover:bg-[#181822] text-zinc-500 hover:text-rose-400 transition flex items-center gap-1 active:scale-95"
-                          >
-                            <IconTrash className="w-3 h-3" />
-                            <span>Delete</span>
-                          </button>
-
-                          <VoiceAssistant
-                            language={language}
-                            onTranscript={() => {}}
-                            textToSpeak={msg.content}
-                          />
-                        </div>
+                        <VoiceAssistant
+                          language={language}
+                          onTranscript={() => {}}
+                          textToSpeak={msg.content}
+                        />
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            ))}
 
             {/* LOADING STATE */}
             {loading && (
-              <div className="flex items-center gap-2.5 text-zinc-400 text-xs font-mono animate-pulse pl-1">
+              <div className="flex items-center gap-3 text-zinc-400 text-xs font-mono animate-pulse pl-1">
                 <div className="h-6 w-6 rounded-lg bg-[#14141c] border border-[#222230] flex items-center justify-center text-white">
                   <IconSparkles className="w-3.5 h-3.5 text-zinc-300" />
                 </div>
-                <span>Executing RAG pipeline with security & memory in {language}...</span>
+                <span>Executing LangGraph StateGraph pipeline in {language}...</span>
               </div>
             )}
 
             {/* ERROR NOTIFICATION */}
             {error && (
-              <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs">
+              <div className="p-3.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs font-sans">
                 {error}
               </div>
             )}
@@ -982,33 +796,31 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* NON-OVERLAPPING CLEAN PROMPT BAR */}
-        <div className="p-2.5 sm:p-3.5 bg-[#0a0a0e] border-t border-[#181822] z-20 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-3xl mx-auto space-y-1.5">
+        {/* FLOATING CHAT PROMPT BAR */}
+        <div className="p-4 bg-gradient-to-t from-[#070709] via-[#070709] to-transparent sticky bottom-0 z-30">
+          <div className="max-w-3xl mx-auto space-y-2">
             {/* ATTACHED FILE PREVIEW CHIPS */}
             {attachedFiles.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 p-1.5 rounded-xl bg-[#0f0f14] border border-[#1f1f2c]">
+              <div className="flex flex-wrap gap-2 p-2 rounded-xl bg-[#0f0f14] border border-[#1f1f2c]">
                 {attachedFiles.map((file, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-[#161620] text-[11px] text-zinc-200 border border-[#242434]"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#161620] text-xs text-zinc-200 border border-[#242434]"
                   >
-                    <IconFileText className="w-3 h-3 text-zinc-400" />
-                    <span className="font-medium truncate max-w-[120px] sm:max-w-[180px]">
-                      {file.name}
+                    <IconFileText className="w-3.5 h-3.5 text-zinc-400" />
+                    <span className="font-medium truncate max-w-[180px]">{file.name}</span>
+                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                      🎯 {file.efficiencyScore || 96.5}% Score ({file.chunks || 1} chunks)
                     </span>
-                    <span className="text-emerald-400 font-mono text-[9px] bg-emerald-500/10 px-1 rounded border border-emerald-500/20">
-                      🎯 {file.efficiencyScore || 96.5}% Score
-                    </span>
-                    <span className="text-[9px] text-zinc-500 font-mono">
+                    <span className="text-[10px] text-zinc-500 font-mono">
                       ({Math.round(file.size / 1024)} KB)
                     </span>
                     <button
                       type="button"
                       onClick={() => removeAttachedFile(idx)}
-                      className="text-zinc-400 hover:text-white ml-0.5 p-0.5"
+                      className="text-zinc-400 hover:text-white ml-1"
                     >
-                      <IconX className="w-3 h-3" />
+                      <IconX className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
@@ -1025,13 +837,13 @@ export default function UserDashboard() {
               className="hidden"
             />
 
-            {/* UNIFIED NON-COLLIDING PROMPT CONTAINER */}
+            {/* PROMPT FORM */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 askAI();
               }}
-              className="rounded-2xl bg-[#121218] border border-[#22222e] focus-within:border-zinc-500 shadow-xl transition p-2.5 sm:p-3 space-y-2"
+              className="relative rounded-2xl bg-[#0f0f14] border border-[#1e1e28] focus-within:border-zinc-600 shadow-2xl transition"
             >
               <textarea
                 ref={textareaRef}
@@ -1039,22 +851,22 @@ export default function UserDashboard() {
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                placeholder={`Ask regulatory question in ${language} or attach PDF...`}
-                className="w-full bg-transparent text-xs sm:text-sm text-white placeholder:text-zinc-500 outline-none resize-none min-h-[36px] max-h-[140px] block"
+                placeholder={`Ask IP-SAKTI in ${language} or attach regulatory PDF...`}
+                className="w-full bg-transparent px-4 pt-3.5 pb-12 text-sm text-white placeholder:text-zinc-600 outline-none resize-none min-h-[52px] max-h-[180px]"
               />
 
-              {/* ACTION TOOLBAR (NORMAL FLOW BELOW TEXTAREA) */}
-              <div className="flex items-center justify-between pt-1 border-t border-[#1a1a24]">
+              {/* ACTION TOOLBAR */}
+              <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={fileLoading}
                     title="Attach PDF or document files"
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#181822] hover:bg-[#20202e] text-[11px] sm:text-xs font-medium text-zinc-300 hover:text-white transition border border-[#28283a] active:scale-95"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#161620] hover:bg-[#1e1e2a] text-xs font-medium text-zinc-300 hover:text-white transition border border-[#242434]"
                   >
                     <IconPaperclip className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Attach</span>
+                    <span className="hidden sm:inline">Add Files</span>
                   </button>
 
                   <VoiceAssistant
@@ -1067,15 +879,19 @@ export default function UserDashboard() {
                   type="submit"
                   disabled={loading || (!question.trim() && attachedFiles.length === 0)}
                   title="Send query"
-                  className="h-7.5 w-7.5 sm:h-8 sm:w-8 rounded-full bg-white text-black hover:bg-zinc-200 disabled:bg-[#1c1c26] disabled:text-zinc-600 flex items-center justify-center transition disabled:cursor-not-allowed shadow-sm active:scale-95 shrink-0"
+                  className="h-8 w-8 rounded-full bg-white text-black hover:bg-zinc-200 disabled:bg-[#1c1c26] disabled:text-zinc-600 flex items-center justify-center transition disabled:cursor-not-allowed shadow-sm"
                 >
                   <IconArrowUp className="w-4 h-4 text-current" />
                 </button>
               </div>
             </form>
+
+            <p className="text-center text-[10px] text-zinc-500 font-mono">
+              IP-SAKTI Sahayak Enterprise RAG • Verify critical patent citations against official Gazette notifications.
+            </p>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
