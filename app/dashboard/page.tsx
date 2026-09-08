@@ -23,6 +23,8 @@ import {
   IconDatabase,
   IconSearch,
   IconTrash,
+  IconThumbUp,
+  IconThumbDown,
 } from "@/src/components/Icons";
 
 interface AttachedFile {
@@ -76,8 +78,81 @@ export default function UserDashboard() {
   // Stats
   const [userStats, setUserStats] = useState<any>(null);
 
+  // RLHF Feedback state (ChatGPT-style model training data)
+  const [feedbackMap, setFeedbackMap] = useState<Record<number, "positive" | "negative">>({});
+  const [negativeFeedbackModal, setNegativeFeedbackModal] = useState<{
+    index: number;
+    question: string;
+    answer: string;
+  } | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackToast, setFeedbackToast] = useState("");
+
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  async function handleThumbsUp(index: number, answer: string) {
+    const priorUserMsg = [...messages.slice(0, index)].reverse().find((m) => m.role === "user");
+    setFeedbackMap((prev) => ({ ...prev, [index]: "positive" }));
+    setFeedbackToast("✓ Thank you! Positive response recorded for model training & alignment.");
+    setTimeout(() => setFeedbackToast(""), 3500);
+
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId: `msg-${index}-${Date.now()}`,
+          question: priorUserMsg?.content || "User query",
+          answer,
+          rating: "positive",
+          tags: ["Accurate", "Helpful Grounding"],
+          language,
+        }),
+      });
+    } catch (e) {
+      console.warn("Feedback submission warning:", e);
+    }
+  }
+
+  function handleThumbsDown(index: number, answer: string) {
+    const priorUserMsg = [...messages.slice(0, index)].reverse().find((m) => m.role === "user");
+    setSelectedTags([]);
+    setFeedbackComment("");
+    setNegativeFeedbackModal({
+      index,
+      question: priorUserMsg?.content || "User query",
+      answer,
+    });
+  }
+
+  async function submitNegativeFeedback() {
+    if (!negativeFeedbackModal) return;
+    const { index, question, answer } = negativeFeedbackModal;
+    setFeedbackMap((prev) => ({ ...prev, [index]: "negative" }));
+    setNegativeFeedbackModal(null);
+    setFeedbackToast("✓ Feedback submitted. Stored for dataset fine-tuning & model improvement.");
+    setTimeout(() => setFeedbackToast(""), 3500);
+
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId: `msg-${index}-${Date.now()}`,
+          question,
+          answer,
+          rating: "negative",
+          tags: selectedTags,
+          comment: feedbackComment,
+          language,
+        }),
+      });
+    } catch (e) {
+      console.warn("Feedback submission warning:", e);
+    }
+  }
 
   useEffect(() => {
     loadSession();
@@ -314,7 +389,7 @@ export default function UserDashboard() {
     user?.email?.toLowerCase().startsWith("admin@");
 
   return (
-    <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex font-sans selection:bg-zinc-800 selection:text-white overflow-hidden">
+    <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex font-sans selection:bg-zinc-800 selection:text-white overflow-hidden relative">
       {/* CITATION VIEWER MODAL */}
       <CitationViewerModal
         citation={selectedCitation}
@@ -322,6 +397,112 @@ export default function UserDashboard() {
         onClose={() => setCitationModalOpen(false)}
         highlightKeyword={activeSearchQuery}
       />
+
+      {/* RLHF FEEDBACK TOAST */}
+      {feedbackToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#121218] border border-emerald-500/30 text-emerald-300 text-xs px-4 py-2.5 rounded-xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex items-center gap-2">
+          <IconCheck className="w-4 h-4 text-emerald-400" />
+          <span>{feedbackToast}</span>
+        </div>
+      )}
+
+      {/* NEGATIVE FEEDBACK RLHF MODAL */}
+      {negativeFeedbackModal && (
+        <div
+          onClick={() => setNegativeFeedbackModal(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[#0e0e14] border border-[#222230] rounded-2xl p-5 shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-[#1c1c28] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center text-xs">
+                  <IconThumbDown className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="font-semibold text-xs sm:text-sm text-white">
+                  Provide Feedback to Train Model
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNegativeFeedbackModal(null)}
+                className="text-zinc-400 hover:text-white p-1 rounded hover:bg-[#1a1a24]"
+              >
+                <IconX className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-zinc-400">
+                What went wrong with this response? Select all that apply:
+              </p>
+
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Factually incorrect",
+                  "Missing statutory citation",
+                  "Missing TKDL prior art",
+                  "Too verbose",
+                  "Unclear explanation",
+                  "Wrong jurisdiction",
+                ].map((tag) => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      type="button"
+                      key={tag}
+                      onClick={() => {
+                        setSelectedTags((prev) =>
+                          isSelected ? prev.filter((t) => t !== tag) : [...prev, tag]
+                        );
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs transition border ${
+                        isSelected
+                          ? "bg-white text-black font-semibold border-white"
+                          : "bg-[#14141c] text-zinc-300 border-[#22222e] hover:border-zinc-600"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div>
+                <label className="text-[11px] text-zinc-400 block mb-1">
+                  Additional notes or corrections (Optional):
+                </label>
+                <textarea
+                  value={feedbackComment}
+                  onChange={(e) => setFeedbackComment(e.target.value)}
+                  placeholder="Explain what the correct statutory reference or answer should be..."
+                  rows={3}
+                  className="w-full rounded-xl bg-[#08080c] border border-[#20202c] p-2.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 resize-none font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1c1c28]">
+              <button
+                type="button"
+                onClick={() => setNegativeFeedbackModal(null)}
+                className="px-3 py-1.5 rounded-xl bg-[#161620] hover:bg-[#1e1e28] text-zinc-300 text-xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitNegativeFeedback}
+                className="px-4 py-1.5 rounded-xl bg-white text-black hover:bg-zinc-200 font-semibold text-xs transition shadow-sm"
+              >
+                Submit Feedback
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* STATE-OF-THE-ART EXECUTIVE SIDEBAR */}
       <aside
@@ -736,7 +917,34 @@ export default function UserDashboard() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        {/* RLHF Feedback Buttons (Model Training Alignment) */}
+                        <button
+                          onClick={() => handleThumbsUp(index, msg.content)}
+                          title="Good response (trains model on accurate answer)"
+                          className={`px-2 py-1 rounded transition flex items-center gap-1 ${
+                            feedbackMap[index] === "positive"
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                              : "hover:bg-[#181822] text-zinc-500 hover:text-emerald-400"
+                          }`}
+                        >
+                          <IconThumbUp className="w-3 h-3" />
+                          <span className="hidden md:inline">Good</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleThumbsDown(index, msg.content)}
+                          title="Poor response / issues (submit corrections for model fine-tuning)"
+                          className={`px-2 py-1 rounded transition flex items-center gap-1 ${
+                            feedbackMap[index] === "negative"
+                              ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                              : "hover:bg-[#181822] text-zinc-500 hover:text-rose-400"
+                          }`}
+                        >
+                          <IconThumbDown className="w-3 h-3" />
+                          <span className="hidden md:inline">Bad</span>
+                        </button>
+
                         <button
                           onClick={() => copyMessage(msg.content, index)}
                           className="px-2 py-1 rounded hover:bg-[#181822] text-zinc-400 hover:text-white transition flex items-center gap-1"
@@ -892,6 +1100,105 @@ export default function UserDashboard() {
           </div>
         </div>
       </div>
+
+      {/* RLHF FEEDBACK TOAST */}
+      {feedbackToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#12121a] border border-emerald-500/40 text-emerald-300 text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <IconCheck className="w-4 h-4 text-emerald-400" />
+          <span>{feedbackToast}</span>
+        </div>
+      )}
+
+      {/* RLHF NEGATIVE FEEDBACK MODAL (Like ChatGPT Feedback Modal) */}
+      {negativeFeedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-2xl bg-[#0c0c12] border border-[#222230] p-6 shadow-2xl relative">
+            <button
+              onClick={() => setNegativeFeedbackModal(null)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-[#181824]"
+            >
+              <IconX className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="h-8 w-8 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                <IconThumbDown className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Provide Model Training Feedback</h3>
+                <p className="text-[11px] text-zinc-400">Your feedback helps fine-tune IP-SAKTI RAG and align responses</p>
+              </div>
+            </div>
+
+            <div className="my-4">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 block">
+                What went wrong? (Select all that apply)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "Factually incorrect",
+                  "Missing statutory citation",
+                  "Outdated patent/TKDL law",
+                  "Guardrail too restrictive",
+                  "Poor translation/language",
+                  "Hallucinated section",
+                  "Incomplete answer",
+                ].map((tag) => {
+                  const active = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() =>
+                        setSelectedTags((prev) =>
+                          active ? prev.filter((t) => t !== tag) : [...prev, tag]
+                        )
+                      }
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition ${
+                        active
+                          ? "bg-rose-500/20 text-rose-300 border-rose-500/50"
+                          : "bg-[#14141c] text-zinc-400 border-[#222230] hover:text-zinc-200 hover:border-zinc-600"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 block">
+                Additional Details / Expected Correct Output
+              </label>
+              <textarea
+                value={feedbackComment}
+                onChange={(e) => setFeedbackComment(e.target.value)}
+                placeholder="Explain the correct legal provision or why this answer was inaccurate..."
+                rows={3}
+                className="w-full rounded-xl bg-[#14141c] border border-[#222230] p-3 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#1c1c28]">
+              <button
+                type="button"
+                onClick={() => setNegativeFeedbackModal(null)}
+                className="px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#181824] transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitNegativeFeedback}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-white text-black hover:bg-zinc-200 transition shadow-sm"
+              >
+                Submit for Model Training
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
