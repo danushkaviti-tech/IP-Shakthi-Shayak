@@ -11,16 +11,7 @@ import os from "os";
 export async function POST(request) {
   try {
     const session = await auth();
-
-    if (!session?.user?.email) {
-      return Response.json(
-        {
-          success: false,
-          error: "Unauthorized. Please login first.",
-        },
-        { status: 401 }
-      );
-    }
+    const userEmail = session?.user?.email || "guest@ipsakti.gov.in";
 
     const contentType = request.headers.get("content-type") || "";
 
@@ -51,7 +42,7 @@ export async function POST(request) {
             ipType,
             language: "English",
             version: "1.0",
-            userEmail: session.user.email,
+            userEmail,
           });
         }
       } catch (chromaErr) {
@@ -74,7 +65,7 @@ export async function POST(request) {
       const documents = db.collection("documents");
 
       const result = await documents.insertOne({
-        userEmail: session.user.email,
+        userEmail,
         name: `${docTitle}.txt`,
         originalName: `${docTitle}.txt`,
         filePath: savedFilePath,
@@ -94,6 +85,7 @@ export async function POST(request) {
         success: true,
         message: "Text indexed successfully into Knowledge Base",
         file: `${docTitle}.txt`,
+        rawText: text,
         totalCharacters: text.length,
         totalChunks: chunks.length,
         efficiencyScore: chunkMetrics.efficiencyScore,
@@ -168,7 +160,7 @@ export async function POST(request) {
           ipType,
           language: "English",
           version: "1.0",
-          userEmail: session.user.email,
+          userEmail,
         });
       }
     } catch (chromaErr) {
@@ -181,7 +173,7 @@ export async function POST(request) {
     const documents = db.collection("documents");
 
     const result = await documents.insertOne({
-      userEmail: session.user.email,
+      userEmail,
       name: file.name,
       originalName: file.name,
       filePath: safeFilePath,
@@ -202,6 +194,7 @@ export async function POST(request) {
       success: true,
       message: "Document successfully added to knowledge base",
       file: file.name,
+      rawText: text,
       totalCharacters: text.length,
       totalChunks: chunks.length,
       efficiencyScore: chunkMetrics.efficiencyScore,

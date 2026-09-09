@@ -104,7 +104,7 @@ export async function getCachedRAG(
   // 3. Tier 3: Check MongoDB Shared RAG Cache (< 25ms)
   try {
     const mongo = await clientPromise;
-    const db = mongo.db("ipsakti");
+    const db = mongo.db("ip-sakti");
     const doc = await db.collection("rag_cache").findOne({ key: cacheKey });
 
     if (doc && doc.data && (!doc.expiresAt || new Date(doc.expiresAt).getTime() > now)) {
@@ -177,7 +177,7 @@ export async function setCachedRAG(
   // 3. Store in MongoDB Shared RAG Cache
   try {
     const mongo = await clientPromise;
-    const db = mongo.db("ipsakti");
+    const db = mongo.db("ip-sakti");
     await db.collection("rag_cache").updateOne(
       { key: cacheKey },
       {
@@ -196,4 +196,43 @@ export async function setCachedRAG(
   } catch (err) {
     console.warn("MongoDB Cache SET error:", err);
   }
+}
+
+/**
+ * Clears memory cache, Redis keys matching ipsakti:*, and MongoDB rag_cache
+ */
+export async function clearRAGCache(): Promise<{
+  memoryCleared: number;
+  redisCleared: number;
+  mongoCleared: number;
+}> {
+  const memoryCleared = memoryCache.size;
+  memoryCache.clear();
+
+  let redisCleared = 0;
+  const redis = getRedisInstance();
+  if (redis) {
+    try {
+      const keys = await redis.keys("ipsakti:*");
+      if (keys.length > 0) {
+        redisCleared = await redis.del(...keys);
+      }
+    } catch (err) {
+      console.warn("Redis clear error:", err);
+    }
+  }
+
+  let mongoCleared = 0;
+  try {
+    const mongo = await clientPromise;
+    for (const dbName of ["ip-sakti", "ipsakti"]) {
+      const db = mongo.db(dbName);
+      const res = await db.collection("rag_cache").deleteMany({});
+      mongoCleared += res.deletedCount || 0;
+    }
+  } catch (err) {
+    console.warn("MongoDB Cache clear error:", err);
+  }
+
+  return { memoryCleared, redisCleared, mongoCleared };
 }

@@ -540,15 +540,24 @@ async function retrieveNode(state: typeof GraphState.State) {
   // 1. Add user-attached workspace files directly to context
   if (state.attachedFiles && state.attachedFiles.length > 0) {
     state.attachedFiles.forEach((f, idx) => {
-      documents.push(f.content);
-      metadatas.push({
-        document: f.name,
-        source: f.name,
-        section: `Active Attachment #${idx + 1}`,
-        jurisdiction: "Active Workspace Document",
-        ipType: "Uploaded Document",
-        isAttachedFile: true,
-      });
+      if (f.content && f.content.trim().length > 0) {
+        // Split long attached files into high-quality chunks if needed
+        const chunks = f.content.length > 3500 
+          ? f.content.split(/\n\n+/).filter((p) => p.trim().length > 20)
+          : [f.content];
+        
+        chunks.slice(0, 5).forEach((chunk, cIdx) => {
+          documents.push(chunk.substring(0, 3500));
+          metadatas.push({
+            document: f.name,
+            source: f.name,
+            section: chunks.length > 1 ? `Attachment Section #${cIdx + 1}` : `Active Attachment #${idx + 1}`,
+            jurisdiction: "Active Workspace Document",
+            ipType: f.type || "Uploaded Document",
+            isAttachedFile: true,
+          });
+        });
+      }
     });
   }
 
@@ -558,62 +567,78 @@ async function retrieveNode(state: typeof GraphState.State) {
     const db = client.db("ip-sakti");
     const docsCol = db.collection("documents");
 
-    // Extract significant search keywords from question
+    const stopWords = new Set(["what", "is", "the", "are", "tell", "me", "about", "in", "for", "and", "how", "to", "can", "you", "explain", "give", "details", "of", "with", "this", "that"]);
     const rawWords = state.question
-      .replace(/[^a-zA-Z0-9\s]/g, " ")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
       .split(/\s+/)
-      .filter((w) => w.length >= 3);
+      .filter((w) => w.length >= 3 && !stopWords.has(w));
 
-    let mongoDocs: Array<{ name?: string; originalName?: string; rawText?: string; jurisdiction?: string; ipType?: string }> = [];
+    const mongoDocs = (await docsCol
+      .find({})
+      .sort({ uploadedAt: -1 })
+      .limit(15)
+      .toArray()) as Array<{
+        name?: string;
+        originalName?: string;
+        rawText?: string;
+        jurisdiction?: string;
+        ipType?: string;
+      }>;
 
-    if (rawWords.length > 0) {
-      const keywordRegexes = rawWords.map((w) => new RegExp(w, "i"));
-      mongoDocs = await docsCol
-        .find({
-          $or: [
-            { name: { $in: keywordRegexes } },
-            { originalName: { $in: keywordRegexes } },
-            { rawText: { $in: keywordRegexes } },
-          ],
-        })
-        .sort({ uploadedAt: -1 })
-        .limit(5)
-        .toArray() as typeof mongoDocs;
-    }
-
-    // If no keyword match found, fetch the most recent uploaded knowledge documents
-    if (mongoDocs.length === 0) {
-      mongoDocs = (await docsCol
-        .find({})
-        .sort({ uploadedAt: -1 })
-        .limit(3)
-        .toArray()) as typeof mongoDocs;
-    }
+    const scoredMongoChunks: Array<{
+      chunk: string;
+      docName: string;
+      jurisdiction: string;
+      ipType: string;
+      score: number;
+    }> = [];
 
     for (const doc of mongoDocs) {
       const fullText = doc.rawText || "";
       if (!fullText) continue;
 
-      let relevantText = fullText;
-      if (fullText.length > 4000 && rawWords.length > 0) {
-        const paragraphs = fullText.split(/\n\n+/);
-        const matchingParas = paragraphs.filter((p: string) =>
-          rawWords.some((w) => p.toLowerCase().includes(w.toLowerCase()))
-        );
-        if (matchingParas.length > 0) {
-          relevantText = matchingParas.slice(0, 4).join("\n\n");
-        } else {
-          relevantText = fullText.substring(0, 3500);
+      const docName = doc.name || doc.originalName || "Uploaded Document";
+      const paras = fullText.split(/\n\n+/).filter((p) => p.trim().length > 30);
+
+      for (let i = 0; i < paras.length; i++) {
+        const p = paras[i].trim();
+        let score = 0;
+        const lowerP = p.toLowerCase();
+        const lowerDoc = docName.toLowerCase();
+
+        for (const kw of rawWords) {
+          if (lowerP.includes(kw)) score += 10;
+          if (lowerDoc.includes(kw)) score += 8;
+        }
+
+        if (state.question.toLowerCase().includes(docName.toLowerCase())) {
+          score += 25;
+        }
+
+        if (score > 0 || (rawWords.length === 0 && i < 2)) {
+          scoredMongoChunks.push({
+            chunk: p.substring(0, 3000),
+            docName,
+            jurisdiction: doc.jurisdiction || "India",
+            ipType: doc.ipType || "General",
+            score: score || 1,
+          });
         }
       }
+    }
 
-      documents.push(relevantText);
+    scoredMongoChunks.sort((a, b) => b.score - a.score);
+    const topMongoChunks = scoredMongoChunks.slice(0, 6);
+
+    for (const item of topMongoChunks) {
+      documents.push(item.chunk);
       metadatas.push({
-        document: doc.name || doc.originalName || "Uploaded Document",
-        source: doc.originalName || doc.name || "Knowledge Base",
-        section: `Document Section • ${doc.ipType || "General"}`,
-        jurisdiction: doc.jurisdiction || "India",
-        ipType: doc.ipType || "General",
+        document: item.docName,
+        source: item.docName,
+        section: `Verified Clause • ${item.ipType}`,
+        jurisdiction: item.jurisdiction,
+        ipType: item.ipType,
       });
     }
   } catch (mongoErr) {
@@ -643,7 +668,7 @@ async function retrieveNode(state: typeof GraphState.State) {
     console.warn("Chroma vector search skipped/fallback:", err);
   }
 
-  // 4. Default statutory fallback if no knowledge exists
+  // 4. Default statutory fallback ONLY if absolutely no knowledge exists
   if (documents.length === 0) {
     const localized = getLocalizedStatutoryKnowledge(state.language);
     documents = localized.map((item) => item.content);
@@ -899,54 +924,130 @@ export async function* generateRAGStreamPipeline(
   const longTermProfile = await getUserLongTermMemory(userEmail);
   const memoryBlock = formatMemoryContext(chatHistory, longTermProfile);
 
-  // 3. Fast Retrieval
+  // 3. Fast & Comprehensive Hybrid Knowledge Retrieval
   let documents: string[] = [];
   let metadatas: DocumentMetadata[] = [];
 
   const localizedFallback = getLocalizedStatutoryKnowledge(language);
 
+  // 3a. Process User-Attached Files
   if (attachedFiles && attachedFiles.length > 0) {
     for (const file of attachedFiles) {
       if (file.content && file.content.trim().length > 0) {
-        documents.push(file.content.substring(0, 3500));
-        const attachedLabel = language === "Telugu"
-          ? `వినియోగదారు పత్రం: ${file.name}`
-          : language === "Hindi"
-          ? `संलग्न दस्तावेज़: ${file.name}`
-          : language === "Tamil"
-          ? `இணைக்கப்பட்ட ஆவணம்: ${file.name}`
-          : language === "Kannada"
-          ? `ಲಗತ್ತಿಸಲಾದ ದಾಖಲೆ: ${file.name}`
-          : language === "Sanskrit"
-          ? `संलग्नं पत्रम्: ${file.name}`
-          : language === "Bengali"
-          ? `সংযুক্ত নথি: ${file.name}`
-          : language === "Marathi"
-          ? `जोडलेले दस्तऐवज: ${file.name}`
-          : language === "Gujarati"
-          ? `જોડાયેલ દસ્તાવેજ: ${file.name}`
-          : language === "Malayalam"
-          ? `ചേർത്ത രേഖ: ${file.name}`
-          : language === "Spanish"
-          ? `Documento adjunto: ${file.name}`
-          : language === "French"
-          ? `Document joint: ${file.name}`
-          : language === "German"
-          ? `Angehängtes Dokument: ${file.name}`
-          : `User Attached Document: ${file.name}`;
+        const chunks = file.content.length > 3500
+          ? file.content.split(/\n\n+/).filter((p) => p.trim().length > 20)
+          : [file.content];
 
-        metadatas.push({
-          document: file.name,
-          source: file.name,
-          section: attachedLabel,
-          jurisdiction: language === "Telugu" ? "వినియోగదారు పత్రం" : language === "Hindi" ? "उपयोगकर्ता दस्तावेज़" : "User Document",
-          ipType: file.type || "Document",
-          isAttachedFile: true,
+        chunks.slice(0, 5).forEach((chunk, cIdx) => {
+          documents.push(chunk.substring(0, 3500));
+          const attachedLabel = language === "Telugu"
+            ? `వినియోగదారు పత్రం: ${file.name} (విభాగం ${cIdx + 1})`
+            : language === "Hindi"
+            ? `संलग्न दस्तावेज़: ${file.name} (खंड ${cIdx + 1})`
+            : language === "Tamil"
+            ? `இணைக்கப்பட்ட ஆவணம்: ${file.name} (பிரிவு ${cIdx + 1})`
+            : `User Attached: ${file.name} (Section ${cIdx + 1})`;
+
+          metadatas.push({
+            document: file.name,
+            source: file.name,
+            section: attachedLabel,
+            jurisdiction: language === "Telugu" ? "వినియోగదారు పత్రం" : language === "Hindi" ? "उपयोगकर्ता दस्तावेज़" : "User Document",
+            ipType: file.type || "Document",
+            isAttachedFile: true,
+          });
         });
       }
     }
   }
 
+  // 3b. Search MongoDB Cloud Knowledge Base (Active Patent & AYUSH Documents)
+  if (!isCasual) {
+    try {
+      const client = await clientPromise;
+      const db = client.db("ip-sakti");
+      const docsCol = db.collection("documents");
+
+      const stopWords = new Set(["what", "is", "the", "are", "tell", "me", "about", "in", "for", "and", "how", "to", "can", "you", "explain", "give", "details", "of", "with", "this", "that"]);
+      const rawWords = question
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length >= 3 && !stopWords.has(w));
+
+      const mongoDocs = (await docsCol
+        .find({})
+        .sort({ uploadedAt: -1 })
+        .limit(15)
+        .toArray()) as Array<{
+          name?: string;
+          originalName?: string;
+          rawText?: string;
+          jurisdiction?: string;
+          ipType?: string;
+        }>;
+
+      const scoredMongoChunks: Array<{
+        chunk: string;
+        docName: string;
+        jurisdiction: string;
+        ipType: string;
+        score: number;
+      }> = [];
+
+      for (const doc of mongoDocs) {
+        const fullText = doc.rawText || "";
+        if (!fullText) continue;
+
+        const docName = doc.name || doc.originalName || "Knowledge Document";
+        const paras = fullText.split(/\n\n+/).filter((p) => p.trim().length > 30);
+
+        for (let i = 0; i < paras.length; i++) {
+          const p = paras[i].trim();
+          let score = 0;
+          const lowerP = p.toLowerCase();
+          const lowerDoc = docName.toLowerCase();
+
+          for (const kw of rawWords) {
+            if (lowerP.includes(kw)) score += 10;
+            if (lowerDoc.includes(kw)) score += 8;
+          }
+
+          if (question.toLowerCase().includes(docName.toLowerCase())) {
+            score += 25;
+          }
+
+          if (score > 0 || (rawWords.length === 0 && i < 2)) {
+            scoredMongoChunks.push({
+              chunk: p.substring(0, 3000),
+              docName,
+              jurisdiction: doc.jurisdiction || "India",
+              ipType: doc.ipType || "General",
+              score: score || 1,
+            });
+          }
+        }
+      }
+
+      scoredMongoChunks.sort((a, b) => b.score - a.score);
+      const topMongoChunks = scoredMongoChunks.slice(0, 6);
+
+      for (const item of topMongoChunks) {
+        documents.push(item.chunk);
+        metadatas.push({
+          document: item.docName,
+          source: item.docName,
+          section: `Verified Provision • ${item.ipType}`,
+          jurisdiction: item.jurisdiction,
+          ipType: item.ipType,
+        });
+      }
+    } catch (mongoErr) {
+      console.warn("MongoDB RAG search error in stream pipeline:", mongoErr);
+    }
+  }
+
+  // 3c. ChromaDB vector search fallback
   if (documents.length === 0 && !isCasual) {
     try {
       const results = await searchKnowledge(question, 3);
@@ -961,6 +1062,7 @@ export async function* generateRAGStreamPipeline(
     }
   }
 
+  // 3d. Statutory fallback only if zero documents found
   if (documents.length === 0 && !isCasual) {
     documents = localizedFallback.map((item) => item.content);
     metadatas = localizedFallback.map((item) => ({

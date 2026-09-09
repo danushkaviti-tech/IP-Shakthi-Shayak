@@ -46,8 +46,8 @@ export async function GET(req: NextRequest) {
           email: u.email,
           role: isMasterAdmin ? "admin" : (u.role || "user"),
           createdAt: u.createdAt || new Date(),
-          queries: stats.queries,
-          tokens: stats.tokens,
+          queries: Math.max(u.lifetimeQueries || 0, stats.queries),
+          tokens: Math.max(u.lifetimeTokens || 0, stats.tokens),
         };
       });
 

@@ -497,7 +497,13 @@ export default function UserDashboard() {
           efficiencyScore = uploadRes.efficiencyScore || 96.5;
           chunks = uploadRes.totalChunks || 1;
           chunkMetrics = uploadRes.chunkMetrics;
-          content = `Attached and Indexed PDF: ${file.name} (${chunks} chunks • ${efficiencyScore}% score)`;
+          content = uploadRes.rawText || (await file.text().catch(() => "")) || `Document content for ${file.name}`;
+          if (!chunkMetrics && content) {
+            const genChunks = splitText(content, 1000, 200);
+            chunkMetrics = evaluateChunkingEfficiency(content, genChunks);
+            chunks = genChunks.length;
+            efficiencyScore = chunkMetrics.efficiencyScore;
+          }
         } else {
           content = await file.text();
           const generatedChunks = splitText(content, 1000, 200);

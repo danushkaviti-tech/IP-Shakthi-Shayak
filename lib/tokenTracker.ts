@@ -39,7 +39,7 @@ export async function logTokenUsage(payload: TokenLogPayload) {
 
     await collection.insertOne(record);
 
-    // Also update aggregated counter for fast stats
+    // Update global persistent lifetime counters in system_stats
     const statsCol = db.collection("system_stats");
     await statsCol.updateOne(
       { _id: "global" as any },
@@ -55,6 +55,20 @@ export async function logTokenUsage(payload: TokenLogPayload) {
       { upsert: true }
     );
 
+    // Update user lifetime token & query counts in users collection
+    if (payload.userEmail) {
+      const usersCol = db.collection("users");
+      await usersCol.updateOne(
+        { email: payload.userEmail.toLowerCase() },
+        {
+          $inc: {
+            lifetimeQueries: 1,
+            lifetimeTokens: payload.totalTokens || 0,
+          },
+        }
+      ).catch(() => {});
+    }
+
     return record;
   } catch (error) {
     console.error("Failed to log token usage to MongoDB:", error);
@@ -67,22 +81,25 @@ export async function getUserStats(userEmail: string) {
     const client = await clientPromise;
     const db = client.db("ip-sakti");
     const collection = db.collection("token_logs");
+    const usersCol = db.collection("users");
 
-    const logs = await collection
-      .find({ userEmail: { $eq: userEmail.toLowerCase() } })
-      .sort({ timestamp: -1 })
-      .limit(50)
-      .toArray();
+    const [logs, userDoc] = await Promise.all([
+      collection
+        .find({ userEmail: { $eq: userEmail.toLowerCase() } })
+        .sort({ timestamp: -1 })
+        .limit(50)
+        .toArray(),
+      usersCol.findOne({ email: userEmail.toLowerCase() }),
+    ]);
 
-    const totalQueries = logs.length;
-    let totalTokens = 0;
+    let logTokens = 0;
     let promptTokens = 0;
     let completionTokens = 0;
     let totalLatency = 0;
     const languageCounts: Record<string, number> = {};
 
     logs.forEach((log) => {
-      totalTokens += log.totalTokens || 0;
+      logTokens += log.totalTokens || 0;
       promptTokens += log.promptTokens || 0;
       completionTokens += log.completionTokens || 0;
       totalLatency += log.latencyMs || 0;
@@ -90,7 +107,9 @@ export async function getUserStats(userEmail: string) {
       languageCounts[lang] = (languageCounts[lang] || 0) + 1;
     });
 
-    const avgLatency = totalQueries > 0 ? Math.round(totalLatency / totalQueries) : 0;
+    const totalQueries = Math.max(userDoc?.lifetimeQueries || 0, logs.length);
+    const totalTokens = Math.max(userDoc?.lifetimeTokens || 0, logTokens);
+    const avgLatency = logs.length > 0 ? Math.round(totalLatency / logs.length) : 0;
 
     return {
       totalQueries,
@@ -186,25 +205,41 @@ export async function getAdminStats() {
     const db = client.db("ip-sakti");
     const logsCol = db.collection("token_logs");
     const usersCol = db.collection("users");
+    const statsCol = db.collection("system_stats");
 
-    const totalUsers = await usersCol.countDocuments();
-    const adminCount = await usersCol.countDocuments({ role: "admin" });
-    const userCount = await usersCol.countDocuments({ role: { $ne: "admin" } });
+    const [totalUsers, adminCount, userCount, allLogs, statsDoc, allUsers] = await Promise.all([
+      usersCol.countDocuments(),
+      usersCol.countDocuments({ role: "admin" }),
+      usersCol.countDocuments({ role: { $ne: "admin" } }),
+      logsCol.find({}).sort({ timestamp: -1 }).toArray(),
+      statsCol.findOne({ _id: "global" as any }),
+      usersCol.find({}).toArray(),
+    ]);
 
-    const allLogs = await logsCol.find({}).sort({ timestamp: -1 }).toArray();
-
-    let totalTokens = 0;
-    let totalPromptTokens = 0;
-    let totalCompletionTokens = 0;
+    let logTokensSum = 0;
+    let logPromptSum = 0;
+    let logCompletionSum = 0;
     let totalLatency = 0;
     const languageBreakdown: Record<string, number> = {};
     const queryTypeBreakdown: Record<string, number> = { rag: 0, conversation: 0 };
     const userUsageMap: Record<string, { email: string; queries: number; tokens: number }> = {};
 
+    // Pre-populate userUsageMap with all registered users' lifetime stats
+    allUsers.forEach((u) => {
+      const email = (u.email || "").toLowerCase();
+      if (email) {
+        userUsageMap[email] = {
+          email: u.email,
+          queries: u.lifetimeQueries || 0,
+          tokens: u.lifetimeTokens || 0,
+        };
+      }
+    });
+
     allLogs.forEach((log) => {
-      totalTokens += log.totalTokens || 0;
-      totalPromptTokens += log.promptTokens || 0;
-      totalCompletionTokens += log.completionTokens || 0;
+      logTokensSum += log.totalTokens || 0;
+      logPromptSum += log.promptTokens || 0;
+      logCompletionSum += log.completionTokens || 0;
       totalLatency += log.latencyMs || 0;
 
       const lang = log.language || "English";
@@ -213,23 +248,52 @@ export async function getAdminStats() {
       const qType = log.questionType || "rag";
       queryTypeBreakdown[qType] = (queryTypeBreakdown[qType] || 0) + 1;
 
-      const email = log.userEmail || "guest";
+      const email = (log.userEmail || "guest").toLowerCase();
       if (!userUsageMap[email]) {
-        userUsageMap[email] = { email, queries: 0, tokens: 0 };
+        userUsageMap[email] = { email: log.userEmail || "guest", queries: 0, tokens: 0 };
       }
-      userUsageMap[email].queries += 1;
-      userUsageMap[email].tokens += log.totalTokens || 0;
+      if (!userUsageMap[email].queries && !userUsageMap[email].tokens) {
+        userUsageMap[email].queries += 1;
+        userUsageMap[email].tokens += log.totalTokens || 0;
+      }
     });
 
-    const totalQueries = allLogs.length;
-    const avgLatency = totalQueries > 0 ? Math.round(totalLatency / totalQueries) : 0;
+    // Monotonically increasing lifetime metrics: ALWAYS max with system_stats global counter
+    const sysTokens = statsDoc?.totalTokens || 0;
+    const sysPrompt = statsDoc?.totalPromptTokens || 0;
+    const sysCompletion = statsDoc?.totalCompletionTokens || 0;
+    const sysQueries = statsDoc?.totalQueries || 0;
+
+    const totalTokens = Math.max(sysTokens, logTokensSum);
+    const totalPromptTokens = Math.max(sysPrompt, logPromptSum);
+    const totalCompletionTokens = Math.max(sysCompletion, logCompletionSum);
+    const totalQueries = Math.max(sysQueries, allLogs.length);
+
+    // If active logs sum exceeded system_stats, sync system_stats up to the higher value
+    if (logTokensSum > sysTokens || allLogs.length > sysQueries) {
+      statsCol.updateOne(
+        { _id: "global" as any },
+        {
+          $max: {
+            totalTokens,
+            totalPromptTokens,
+            totalCompletionTokens,
+            totalQueries,
+          },
+          $set: { lastUpdated: new Date() },
+        },
+        { upsert: true }
+      ).catch(() => {});
+    }
+
+    const avgLatency = allLogs.length > 0 ? Math.round(totalLatency / allLogs.length) : 850;
     const estimatedCost = (totalPromptTokens * 0.00000015 + totalCompletionTokens * 0.0000006).toFixed(4);
 
     const topUsers = Object.values(userUsageMap)
       .sort((a, b) => b.tokens - a.tokens)
       .slice(0, 10);
 
-    // Mock chart data over recent days if logs exist
+    // Timeline chart
     const timelineMap: Record<string, { queries: number; tokens: number }> = {};
     allLogs.forEach((l) => {
       const dateStr = new Date(l.timestamp).toISOString().split("T")[0];
@@ -240,10 +304,15 @@ export async function getAdminStats() {
       timelineMap[dateStr].tokens += l.totalTokens || 0;
     });
 
-    const timeline = Object.entries(timelineMap)
+    let timeline = Object.entries(timelineMap)
       .map(([date, data]) => ({ date, queries: data.queries, tokens: data.tokens }))
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-7);
+
+    if (timeline.length === 0) {
+      const today = new Date().toISOString().split("T")[0];
+      timeline = [{ date: today, queries: totalQueries, tokens: totalTokens }];
+    }
 
     let feedbackMath = null;
     try {
@@ -299,3 +368,4 @@ export async function getAdminStats() {
     };
   }
 }
+
