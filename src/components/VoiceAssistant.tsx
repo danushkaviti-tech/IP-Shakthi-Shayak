@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { IconMicrophone, IconSpeaker } from "./Icons";
+import { getTranslation } from "@/src/lib/i18n";
 
 interface VoiceAssistantProps {
   language: string;
@@ -35,6 +36,7 @@ export default function VoiceAssistant({
   const [isListening, setIsListening] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speechError, setSpeechError] = useState("");
+  const t = getTranslation(language);
   const recognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef<string>("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -305,7 +307,7 @@ export default function VoiceAssistant({
         <button
           type="button"
           onClick={() => speakText(textToSpeak)}
-          title={isPlaying ? "Stop audio" : "Listen to full answer in Telugu/selected language"}
+          title={isPlaying ? t.stopAction : t.listenAction}
           className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium transition-all ${
             isPlaying
               ? "bg-white text-black font-semibold shadow-sm animate-pulse"
@@ -313,7 +315,7 @@ export default function VoiceAssistant({
           }`}
         >
           <IconSpeaker className="w-3 h-3" />
-          <span>{isPlaying ? "Stop" : "Listen"}</span>
+          <span>{isPlaying ? t.stopAction : t.listenAction}</span>
         </button>
       )}
 
