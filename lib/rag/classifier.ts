@@ -53,18 +53,22 @@ export function classifyQuestion(
     ipType = "Plant Variety";
   }
 
-  let productType = "Ayurvedic Formulation";
-  if (q.includes("medicine") || q.includes("drug") || q.includes("pharma") || q.includes("tablet") || q.includes("syrup")) {
-    productType = "Ayurvedic Medicine";
+  let productType = "General / Document Content";
+  if (q.includes("ayurved") || q.includes("charaka") || q.includes("sushruta") || q.includes("herbal") || q.includes("triphala") || q.includes("ashwagandha")) {
+    productType = "Ayurvedic Formulation";
+  } else if (q.includes("medicine") || q.includes("drug") || q.includes("pharma") || q.includes("tablet") || q.includes("syrup")) {
+    productType = "Pharmaceutical & Medicine";
   } else if (q.includes("food") || q.includes("diet") || q.includes("nutraceutical") || q.includes("tea")) {
-    productType = "Food";
+    productType = "Food & Nutraceutical";
   } else if (q.includes("cosmetic") || q.includes("cream") || q.includes("oil") || q.includes("hair") || q.includes("skin")) {
     productType = "Cosmetic";
   } else if (q.includes("plant") || q.includes("herb") || q.includes("extract")) {
-    productType = "Plant";
+    productType = "Plant & Biological";
+  } else if (q.includes("software") || q.includes("code") || q.includes("app") || q.includes("tech") || q.includes("ai")) {
+    productType = "Software / Technology";
   }
 
-  let purpose = "Patent Protection";
+  let purpose = "Document & IP Analysis";
   if (q.includes("prior art") || q.includes("novelty") || q.includes("anticipation") || q.includes("search")) {
     purpose = "Prior Art Search";
   } else if (q.includes("licens") || q.includes("ayush") || q.includes("compliance") || q.includes("regulatory") || q.includes("gmp")) {
@@ -73,6 +77,8 @@ export function classifyQuestion(
     purpose = "ABS Compliance";
   } else if (q.includes("infring") || q.includes("litigat") || q.includes("lawsuit") || q.includes("court")) {
     purpose = "Infringement & Litigation";
+  } else if (q.includes("filing") || q.includes("register") || q.includes("apply") || q.includes("application")) {
+    purpose = "Registration & Filing";
   }
 
   return {

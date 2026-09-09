@@ -2,16 +2,17 @@ import PDFParser from "pdf2json";
 
 export function extractPDFText(buffer: Buffer): Promise<string> {
   return new Promise((resolve) => {
-    const parser = new PDFParser(null, true);
+    // Mode 1: extract text content directly
+    const parser = new (PDFParser as any)(null, 1);
     let resolved = false;
 
-    // Timeout safety after 10 seconds
+    // Timeout safety after 12 seconds
     const timeout = setTimeout(() => {
       if (!resolved) {
         resolved = true;
         resolve(fallbackRawPdfExtract(buffer));
       }
-    }, 10000);
+    }, 12000);
 
     parser.on("pdfParser_dataError", (error: any) => {
       if (!resolved) {
@@ -27,43 +28,59 @@ export function extractPDFText(buffer: Buffer): Promise<string> {
         resolved = true;
         clearTimeout(timeout);
         try {
-          if (!pdfData?.Pages || !Array.isArray(pdfData.Pages)) {
-            resolve(fallbackRawPdfExtract(buffer));
-            return;
+          // 1. Try parser.getRawTextContent()
+          const rawTextContent = typeof parser.getRawTextContent === "function" ? parser.getRawTextContent() : "";
+          if (rawTextContent && rawTextContent.trim().length > 20) {
+            // Clean up form feed / page separators
+            const cleaned = rawTextContent
+              .replace(/----------------Page \(\d+\) Break----------------/g, "\n\n")
+              .replace(/\r\n/g, "\n")
+              .trim();
+            if (cleaned.length > 20) {
+              resolve(cleaned);
+              return;
+            }
           }
 
-          const extractedPages: string[] = [];
+          // 2. Parse from Pages array with safe decoding
+          if (pdfData?.Pages && Array.isArray(pdfData.Pages)) {
+            const extractedPages: string[] = [];
 
-          for (const page of pdfData.Pages) {
-            if (!page.Texts || !Array.isArray(page.Texts)) continue;
+            for (const page of pdfData.Pages) {
+              if (!page.Texts || !Array.isArray(page.Texts)) continue;
 
-            const pageWords: string[] = [];
-            for (const t of page.Texts) {
-              if (t.R && Array.isArray(t.R)) {
-                for (const r of t.R) {
-                  if (r && typeof r.T === "string") {
-                    try {
-                      // Safe decode
-                      const decoded = decodeURIComponent(r.T.replace(/\+/g, "%20"));
-                      pageWords.push(decoded);
-                    } catch {
-                      pageWords.push(r.T);
+              const pageWords: string[] = [];
+              for (const t of page.Texts) {
+                if (t.R && Array.isArray(t.R)) {
+                  for (const r of t.R) {
+                    if (r && typeof r.T === "string") {
+                      try {
+                        const decoded = decodeURIComponent(r.T.replace(/\+/g, "%20"));
+                        pageWords.push(decoded);
+                      } catch {
+                        try {
+                          pageWords.push(unescape(r.T));
+                        } catch {
+                          pageWords.push(r.T);
+                        }
+                      }
                     }
                   }
                 }
               }
+              if (pageWords.length > 0) {
+                extractedPages.push(pageWords.join(" "));
+              }
             }
-            if (pageWords.length > 0) {
-              extractedPages.push(pageWords.join(" "));
+
+            const fullText = extractedPages.join("\n\n").trim();
+            if (fullText.length > 20) {
+              resolve(fullText);
+              return;
             }
           }
 
-          const fullText = extractedPages.join("\n\n").trim();
-          if (fullText.length > 20) {
-            resolve(fullText);
-          } else {
-            resolve(fallbackRawPdfExtract(buffer));
-          }
+          resolve(fallbackRawPdfExtract(buffer));
         } catch (err) {
           console.warn("pdf2json dataReady parse error:", err);
           resolve(fallbackRawPdfExtract(buffer));
@@ -99,5 +116,5 @@ function fallbackRawPdfExtract(buffer: Buffer): string {
   } catch (e) {
     console.warn("Raw PDF string fallback error:", e);
   }
-  return "Verified PDF Document Record in IP-SAKTI.";
-}
+  return "Verified PDF Document Record in IP-SAKTI Knowledge Base.";
+}

@@ -541,13 +541,13 @@ async function retrieveNode(state: typeof GraphState.State) {
   if (state.attachedFiles && state.attachedFiles.length > 0) {
     state.attachedFiles.forEach((f, idx) => {
       if (f.content && f.content.trim().length > 0) {
-        // Split long attached files into high-quality chunks if needed
-        const chunks = f.content.length > 3500 
-          ? f.content.split(/\n\n+/).filter((p) => p.trim().length > 20)
+        // Split long attached files into high-quality chunks covering full content
+        const chunks = f.content.length > 3000 
+          ? f.content.split(/\n\n+/).filter((p) => p.trim().length > 15)
           : [f.content];
         
-        chunks.slice(0, 5).forEach((chunk, cIdx) => {
-          documents.push(chunk.substring(0, 3500));
+        chunks.slice(0, 8).forEach((chunk, cIdx) => {
+          documents.push(chunk.substring(0, 4000));
           metadatas.push({
             document: f.name,
             source: f.name,
@@ -574,6 +574,8 @@ async function retrieveNode(state: typeof GraphState.State) {
       .split(/\s+/)
       .filter((w) => w.length >= 3 && !stopWords.has(w));
 
+    const isDocQuery = /document|file|uploaded|summary|summarize|explain|review|analyze|content|pdf|text/i.test(state.question);
+
     const mongoDocs = (await docsCol
       .find({})
       .sort({ uploadedAt: -1 })
@@ -599,7 +601,7 @@ async function retrieveNode(state: typeof GraphState.State) {
       if (!fullText) continue;
 
       const docName = doc.name || doc.originalName || "Uploaded Document";
-      const paras = fullText.split(/\n\n+/).filter((p) => p.trim().length > 30);
+      const paras = fullText.split(/\n\n+/).filter((p) => p.trim().length > 20);
 
       for (let i = 0; i < paras.length; i++) {
         const p = paras[i].trim();
@@ -616,13 +618,13 @@ async function retrieveNode(state: typeof GraphState.State) {
           score += 25;
         }
 
-        if (score > 0 || (rawWords.length === 0 && i < 2)) {
+        if (score > 0 || (rawWords.length === 0 && i < 3) || (isDocQuery && i < 3)) {
           scoredMongoChunks.push({
-            chunk: p.substring(0, 3000),
+            chunk: p.substring(0, 3500),
             docName,
             jurisdiction: doc.jurisdiction || "India",
             ipType: doc.ipType || "General",
-            score: score || 1,
+            score: score || 2,
           });
         }
       }
@@ -636,7 +638,7 @@ async function retrieveNode(state: typeof GraphState.State) {
       metadatas.push({
         document: item.docName,
         source: item.docName,
-        section: `Verified Clause • ${item.ipType}`,
+        section: `Verified Provision • ${item.ipType}`,
         jurisdiction: item.jurisdiction,
         ipType: item.ipType,
       });
@@ -714,12 +716,12 @@ async function generateNode(state: typeof GraphState.State) {
   // 3. Casual conversation
   if (state.isCasual) {
     const prompt = `
-You are IP-SAKTI Sahayak, an AI assistant for Intellectual Property, Patents, Trademarks, and Ayurveda regulatory guidance.
+You are IP-SAKTI Sahayak, an AI assistant for Intellectual Property, Patents, Trademarks, Document Analysis, and Legal guidance.
 The user is making a casual statement:
 "${state.question}"
 
 ${memoryBlock ? memoryBlock + "\n\n" : ""}
-Respond conversationally, politely, and briefly in ${state.language}. Mention that you are ready to assist with patent filings, GI registration, TKDL, and IP regulations.
+Respond conversationally, politely, and briefly in ${state.language}. Mention that you are ready to assist with document analysis, patent filings, trademarks, and IP regulations.
 `;
 
     const res = await askGeminiWithUsage(prompt);
@@ -750,9 +752,9 @@ ${doc}
     .join("\n\n");
 
   const prompt = `
-You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Indian and Global Intellectual Property laws, Patents Act 1970, Traditional Knowledge Digital Library (TKDL), Ayurveda regulations, and Geographical Indications.
+You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Intellectual Property laws, Patents Act 1970, Trademarks, Copyrights, Traditional Knowledge Digital Library (TKDL), and Comprehensive Document Analysis.
 
-Answer the user's question accurately using the provided knowledge sources and conversational context.
+Answer the user's question accurately using the provided knowledge sources, attached documents, and conversational context.
 
 Respond strictly in: ${state.language}
 
@@ -761,30 +763,30 @@ ${state.question}
 
 ${memoryBlock ? memoryBlock + "\n\n" : ""}
 CLASSIFICATION:
-- Jurisdiction: ${classification?.jurisdiction || "India"}
-- IP Domain: ${classification?.ipType || "General IP"}
-- Product Category: ${classification?.productType || "Ayurveda/Herbal"}
+- Jurisdiction: ${classification?.jurisdiction || "India & International"}
+- IP Domain: ${classification?.ipType || "General IP & Documents"}
+- Product Category: ${classification?.productType || "General / Document Content"}
 
-KNOWLEDGE SOURCES:
+KNOWLEDGE SOURCES & ATTACHED DOCUMENTS:
 ${context}
 
 GUIDELINES:
-1. Provide a well-structured, clear, comprehensive answer in ${state.language} with bullet points or numbered sections.
-2. In-text citations: Cite sources as [Source 1], [Source 2], or with document titles where relevant.
-3. Highlight key legal provisions, statutory bars (e.g. Section 3(p), Section 3(e), NBA clearance), and actionable compliance rules.
-4. If an attached document was provided by the user, analyze its content directly.
-5. If short-term previous messages exist, seamlessly reference earlier discussion points to maintain conversational continuity.
-6. If sources lack sufficient details, state clearly what is known from the knowledge base and what additional official verification is needed.
+1. Ground your answer thoroughly on the provided document excerpts and knowledge sources.
+2. If the user attached or referenced documents, analyze and extract answers directly from the document content. Provide clear summaries, key insights, technical/legal clauses, and actionable takeaways in ${state.language}.
+3. Provide a well-structured, clear, comprehensive answer with bullet points or numbered sections.
+4. In-text citations: Cite sources as [Source 1], [Source 2], or with document titles where relevant.
+5. If short-term previous messages exist, reference earlier discussion points to maintain conversational continuity.
+6. Only highlight statutory provisions (e.g. Section 3(p), Section 3(e), NBA approval) when relevant to the user's question or document subject matter.
 
 CRITICAL: VERIFIED SOURCES GROUNDING
 At the end of your response, output a structured block formatted exactly like this:
 ---VERIFIED_SOURCES_TRANSLATED---
 SOURCE_1:
-SECTION: <Short section title translated into ${state.language}>
-HIGHLIGHT: <Core statutory legal rule or verified citation point translated into ${state.language}, 1-2 sentences>
+SECTION: <Short section title or document name translated into ${state.language}>
+HIGHLIGHT: <Core verified rule or key document takeaway translated into ${state.language}, 1-2 sentences>
 SOURCE_2:
-SECTION: <Short section title translated into ${state.language}>
-HIGHLIGHT: <Core statutory legal rule or verified citation point translated into ${state.language}, 1-2 sentences>
+SECTION: <Short section title or document name translated into ${state.language}>
+HIGHLIGHT: <Core verified rule or key document takeaway translated into ${state.language}, 1-2 sentences>
 ---END_VERIFIED_SOURCES---
 `;
 
@@ -934,12 +936,12 @@ export async function* generateRAGStreamPipeline(
   if (attachedFiles && attachedFiles.length > 0) {
     for (const file of attachedFiles) {
       if (file.content && file.content.trim().length > 0) {
-        const chunks = file.content.length > 3500
-          ? file.content.split(/\n\n+/).filter((p) => p.trim().length > 20)
+        const chunks = file.content.length > 3000
+          ? file.content.split(/\n\n+/).filter((p) => p.trim().length > 15)
           : [file.content];
 
-        chunks.slice(0, 5).forEach((chunk, cIdx) => {
-          documents.push(chunk.substring(0, 3500));
+        chunks.slice(0, 8).forEach((chunk, cIdx) => {
+          documents.push(chunk.substring(0, 4000));
           const attachedLabel = language === "Telugu"
             ? `వినియోగదారు పత్రం: ${file.name} (విభాగం ${cIdx + 1})`
             : language === "Hindi"
@@ -953,7 +955,7 @@ export async function* generateRAGStreamPipeline(
             source: file.name,
             section: attachedLabel,
             jurisdiction: language === "Telugu" ? "వినియోగదారు పత్రం" : language === "Hindi" ? "उपयोगकर्ता दस्तावेज़" : "User Document",
-            ipType: file.type || "Document",
+            ipType: file.type || "Uploaded Document",
             isAttachedFile: true,
           });
         });
@@ -974,6 +976,8 @@ export async function* generateRAGStreamPipeline(
         .replace(/[^a-z0-9\s]/g, " ")
         .split(/\s+/)
         .filter((w) => w.length >= 3 && !stopWords.has(w));
+
+      const isDocQuery = /document|file|uploaded|summary|summarize|explain|review|analyze|content|pdf|text/i.test(question);
 
       const mongoDocs = (await docsCol
         .find({})
@@ -1000,7 +1004,7 @@ export async function* generateRAGStreamPipeline(
         if (!fullText) continue;
 
         const docName = doc.name || doc.originalName || "Knowledge Document";
-        const paras = fullText.split(/\n\n+/).filter((p) => p.trim().length > 30);
+        const paras = fullText.split(/\n\n+/).filter((p) => p.trim().length > 20);
 
         for (let i = 0; i < paras.length; i++) {
           const p = paras[i].trim();
@@ -1017,13 +1021,13 @@ export async function* generateRAGStreamPipeline(
             score += 25;
           }
 
-          if (score > 0 || (rawWords.length === 0 && i < 2)) {
+          if (score > 0 || (rawWords.length === 0 && i < 3) || (isDocQuery && i < 3)) {
             scoredMongoChunks.push({
-              chunk: p.substring(0, 3000),
+              chunk: p.substring(0, 3500),
               docName,
               jurisdiction: doc.jurisdiction || "India",
               ipType: doc.ipType || "General",
-              score: score || 1,
+              score: score || 2,
             });
           }
         }
@@ -1149,12 +1153,12 @@ export async function* generateRAGStreamPipeline(
   let prompt = "";
   if (isCasual) {
     prompt = `
-You are IP-SAKTI Sahayak, an AI assistant for Intellectual Property, Patents, Trademarks, and Ayurveda regulatory guidance.
+You are IP-SAKTI Sahayak, an AI assistant for Intellectual Property, Patents, Trademarks, Document Analysis, and Legal guidance.
 The user is making a casual statement:
 "${question}"
 
 ${memoryBlock ? memoryBlock + "\n\n" : ""}
-Respond conversationally, politely, and briefly in ${language}. Mention that you are ready to assist with patent filings, GI registration, TKDL, and IP regulations.
+Respond conversationally, politely, and briefly in ${language}. Mention that you are ready to assist with document analysis, patent filings, trademarks, and IP regulations.
 `;
   } else {
     const context = documents
@@ -1177,9 +1181,9 @@ ${doc}
       : `Respond strictly in: ${language}`;
 
     prompt = `
-You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Indian and Global Intellectual Property laws, Patents Act 1970, Traditional Knowledge Digital Library (TKDL), Ayurveda regulations, and Geographical Indications.
+You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Intellectual Property laws, Patents Act 1970, Trademarks, Copyrights, Traditional Knowledge Digital Library (TKDL), and Comprehensive Document Analysis.
 
-Answer the user's question accurately using the provided knowledge sources and conversational context.
+Answer the user's question accurately using the provided knowledge sources, attached documents, and conversational context.
 
 ${langDirective}
 
@@ -1188,19 +1192,20 @@ ${question}
 
 ${memoryBlock ? memoryBlock + "\n\n" : ""}
 CLASSIFICATION:
-- Jurisdiction: ${classification?.jurisdiction || "India"}
-- IP Domain: ${classification?.ipType || "General IP"}
-- Product Category: ${classification?.productType || "Ayurveda/Herbal"}
+- Jurisdiction: ${classification?.jurisdiction || "India & International"}
+- IP Domain: ${classification?.ipType || "General IP & Documents"}
+- Product Category: ${classification?.productType || "General / Document Content"}
 
-KNOWLEDGE SOURCES:
+KNOWLEDGE SOURCES & ATTACHED DOCUMENTS:
 ${context}
 
 GUIDELINES:
-1. Provide a well-structured, clear, comprehensive answer in ${language} with bullet points or numbered sections.
-2. In-text citations: Cite sources as [Source 1], [Source 2], or with document titles where relevant.
-3. Highlight key legal provisions, statutory bars (e.g. Section 3(p), Section 3(e), NBA clearance), and actionable compliance rules in ${language}.
-4. If an attached document was provided by the user, analyze its content directly in ${language}.
-5. If short-term previous messages exist, seamlessly reference earlier discussion points to maintain conversational continuity.
+1. Ground your answer thoroughly on the provided document excerpts and knowledge sources.
+2. If the user attached or referenced documents, analyze and extract answers directly from the document content. Provide clear summaries, key insights, technical/legal clauses, and actionable takeaways in ${language}.
+3. Provide a well-structured, clear, comprehensive answer with bullet points or numbered sections.
+4. In-text citations: Cite sources as [Source 1], [Source 2], or with document titles where relevant.
+5. If short-term previous messages exist, reference earlier discussion points to maintain conversational continuity.
+6. Only highlight statutory provisions (e.g. Section 3(p), Section 3(e), NBA approval) when relevant to the user's question or document subject matter.
 `;
   }
 
