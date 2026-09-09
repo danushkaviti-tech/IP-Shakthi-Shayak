@@ -1080,13 +1080,115 @@ export async function* generateRAGStreamPipeline(
     }));
   }
 
+  const isUsingFallback = !hasFiles && documents.length === localizedFallback.length && documents[0] === localizedFallback[0]?.content;
+
   const sources: SourceCitation[] = metadatas.map((meta, idx) => {
     const rawDoc = documents[idx] || "";
     const docName = meta.document || meta.source || `Document-${idx + 1}`;
     const baseAccuracy = 96.0 + Math.min(idx * 1.1, 3.8);
-    const fallbackItem = localizedFallback[idx];
-    const firstSentence = rawDoc.split(/(?<=[.?!])\s+/)[0] || rawDoc.slice(0, 180);
-    const defaultHighlight = fallbackItem?.highlight || (firstSentence.length > 220 ? firstSentence.slice(0, 220) + "..." : firstSentence);
+    const isAttachment = Boolean(meta.isAttachedFile);
+
+    // Extract highlight point from actual document text if not statutory fallback
+    let defaultHighlight = "";
+    if (isUsingFallback) {
+      const fallbackItem = localizedFallback[idx];
+      defaultHighlight = fallbackItem?.highlight || rawDoc.slice(0, 200);
+    } else {
+      // Find clean first 1-2 sentences from user's document
+      const cleanDoc = rawDoc.replace(/----------------Page \(\d+\) Break----------------/g, " ").replace(/\s+/g, " ").trim();
+      const sentenceMatch = cleanDoc.match(/^(.*?[.?!])\s/);
+      defaultHighlight = sentenceMatch && sentenceMatch[1].length > 30 && sentenceMatch[1].length < 250
+        ? sentenceMatch[1]
+        : cleanDoc.slice(0, 220) + (cleanDoc.length > 220 ? "..." : "");
+    }
+
+    // Localized section title
+    let sectionTitle = meta.section || "";
+    if (isAttachment) {
+      switch (language) {
+        case "Telugu":
+          sectionTitle = `వినియోగదారు పత్రం: ${docName} (విభాగం ${idx + 1})`;
+          break;
+        case "Hindi":
+          sectionTitle = `संलग्न दस्तावेज़: ${docName} (खंड ${idx + 1})`;
+          break;
+        case "Tamil":
+          sectionTitle = `இணைக்கப்பட்ட ஆவணம்: ${docName} (பிரிவு ${idx + 1})`;
+          break;
+        case "Kannada":
+          sectionTitle = `ಲಗತ್ತಿಸಲಾದ ದಾಖಲೆ: ${docName} (ವಿಭಾಗ ${idx + 1})`;
+          break;
+        case "Sanskrit":
+          sectionTitle = `संलग्नं पत्रम्: ${docName} (खण्डः ${idx + 1})`;
+          break;
+        case "Bengali":
+          sectionTitle = `সংযুক্ত নথি: ${docName} (বিভাগ ${idx + 1})`;
+          break;
+        case "Marathi":
+          sectionTitle = `संलग्न दस्तऐवज: ${docName} (विभाग ${idx + 1})`;
+          break;
+        case "Gujarati":
+          sectionTitle = `જોડાયેલ દસ્તાવેજ: ${docName} (વિભાગ ${idx + 1})`;
+          break;
+        case "Malayalam":
+          sectionTitle = `ചേർത്ത രേഖ: ${docName} (വകുപ്പ് ${idx + 1})`;
+          break;
+        case "Spanish":
+          sectionTitle = `Documento adjunto: ${docName} (Sección ${idx + 1})`;
+          break;
+        case "French":
+          sectionTitle = `Document joint: ${docName} (Section ${idx + 1})`;
+          break;
+        case "German":
+          sectionTitle = `Angehängtes Dokument: ${docName} (Abschnitt ${idx + 1})`;
+          break;
+        default:
+          sectionTitle = `Attached Document: ${docName} (Section ${idx + 1})`;
+          break;
+      }
+    } else if (!isUsingFallback) {
+      switch (language) {
+        case "Telugu":
+          sectionTitle = `ధృవీకరించబడిన ఆధారం • ${docName}`;
+          break;
+        case "Hindi":
+          sectionTitle = `सत्यापित संदर्भ • ${docName}`;
+          break;
+        case "Tamil":
+          sectionTitle = `சரிபார்க்கப்பட்ட ஆதாரம் • ${docName}`;
+          break;
+        case "Kannada":
+          sectionTitle = `ಪರಿಶೀಲಿಸಲಾದ ಮೂಲ • ${docName}`;
+          break;
+        case "Sanskrit":
+          sectionTitle = `सत्यापितं प्रमाणम् • ${docName}`;
+          break;
+        case "Bengali":
+          sectionTitle = `যাচাইকৃত উৎস • ${docName}`;
+          break;
+        case "Marathi":
+          sectionTitle = `सत्यापित संदर्भ • ${docName}`;
+          break;
+        case "Gujarati":
+          sectionTitle = `ચકાસાયેલ સ્ત્રોત • ${docName}`;
+          break;
+        case "Malayalam":
+          sectionTitle = `സ്ഥിരീകരിച്ച ഉറവിടം • ${docName}`;
+          break;
+        case "Spanish":
+          sectionTitle = `Fuente verificada • ${docName}`;
+          break;
+        case "French":
+          sectionTitle = `Source vérifiée • ${docName}`;
+          break;
+        case "German":
+          sectionTitle = `Verifizierte Quelle • ${docName}`;
+          break;
+        default:
+          sectionTitle = `Verified Knowledge • ${docName}`;
+          break;
+      }
+    }
 
     const defaultPage = language === "Telugu"
       ? `విభాగం ${idx + 1} • భాగం ${idx + 1}`
@@ -1114,14 +1216,22 @@ export async function* generateRAGStreamPipeline(
       ? `Abschnitt ${idx + 1} • Teil ${idx + 1}`
       : `Section ${idx + 1} • Chunk ${idx + 1}`;
 
+    const defaultJurisdiction = isAttachment
+      ? (language === "Telugu" ? "వినియోగదారు పత్రం" : language === "Hindi" ? "उपयोगकर्ता दस्तावेज़" : "User Document")
+      : (meta.jurisdiction || (language === "Telugu" ? "భారతదేశం" : language === "Hindi" ? "भारत" : "India"));
+
+    const defaultIpType = isAttachment
+      ? (language === "Telugu" ? "పత్ర విశ్లేషణ" : language === "Hindi" ? "दस्तावेज़ विश्लेषण" : "Document Analysis")
+      : (meta.ipType || (language === "Telugu" ? "మేధో సంపత్తి" : language === "Hindi" ? "बौद्धिक संपदा" : "Intellectual Property"));
+
     return {
       id: `cit-${idx + 1}-${Date.now()}`,
       document: docName,
-      section: meta.section || (fallbackItem?.section ?? `Section ${idx + 1}`),
-      page: (meta.page as string) || fallbackItem?.page || defaultPage,
-      jurisdiction: meta.jurisdiction || fallbackItem?.jurisdiction || (language === "Telugu" ? "భారతదేశం" : language === "Hindi" ? "भारत" : "India"),
-      ipType: meta.ipType || fallbackItem?.ipType || (language === "Telugu" ? "పేటెంట్ చట్టం" : language === "Hindi" ? "पेटेंट कानून" : "General IP"),
-      productType: meta.productType || fallbackItem?.productType || (language === "Telugu" ? "ఆయుర్వేదం/మూలికలు" : language === "Hindi" ? "आयुर्वेद/हर्बल" : "Herbal/Ayurveda"),
+      section: sectionTitle,
+      page: (meta.page as string) || defaultPage,
+      jurisdiction: defaultJurisdiction,
+      ipType: defaultIpType,
+      productType: (meta.productType as string) || (language === "Telugu" ? "సాధారణ పత్రం" : language === "Hindi" ? "सामान्य दस्तावेज़" : "General Document"),
       snippet: rawDoc.length > 300 ? rawDoc.slice(0, 300) + "..." : rawDoc,
       highlightPoint: defaultHighlight,
       fullText: rawDoc || (language === "Telugu" ? "IP-SAKTI మేధో భాండాగారంలో ధృవీకరించబడిన పత్రం." : language === "Hindi" ? "IP-SAKTI ज्ञान कोष में सत्यापित सामग्री।" : "Content verified in IP-SAKTI Knowledge Base."),
@@ -1176,9 +1286,38 @@ ${doc}
       })
       .join("\n\n");
 
-    const langDirective = language === "Telugu"
-      ? `Respond strictly in Telugu (తెలుగు). The entire answer, legal rationale, statutory citations, and document analysis MUST be written entirely in fluent Telugu script (తెలుగు లిపి). Use standard section numbers (e.g. సెక్షన్ 3(p), పేటెంట్ చట్టం 1970) and provide well-structured headings and bullet points in Telugu.`
-      : `Respond strictly in: ${language}`;
+    const getLanguageDirective = (lang: string) => {
+      switch (lang) {
+        case "Telugu":
+          return `Respond strictly in fluent Telugu (తెలుగు లిపి). The entire answer, legal rationale, document analysis, and citations MUST be written entirely in Telugu script.`;
+        case "Hindi":
+          return `Respond strictly in fluent Hindi (हिन्दी देवनागरी लिपि). The entire answer, document analysis, and citations MUST be written in Hindi.`;
+        case "Tamil":
+          return `Respond strictly in fluent Tamil (தமிழ்). The entire answer, document analysis, and citations MUST be written in Tamil script.`;
+        case "Kannada":
+          return `Respond strictly in fluent Kannada (ಕನ್ನಡ). The entire answer, document analysis, and citations MUST be written in Kannada script.`;
+        case "Sanskrit":
+          return `Respond strictly in fluent Sanskrit (संस्कृतम् / देवनागरी). The entire answer and citations MUST be written in Sanskrit.`;
+        case "Bengali":
+          return `Respond strictly in fluent Bengali (বাংলা). The entire answer, document analysis, and citations MUST be written in Bengali script.`;
+        case "Marathi":
+          return `Respond strictly in fluent Marathi (मराठी). The entire answer, document analysis, and citations MUST be written in Marathi.`;
+        case "Gujarati":
+          return `Respond strictly in fluent Gujarati (ગુજરાતી). The entire answer, document analysis, and citations MUST be written in Gujarati script.`;
+        case "Malayalam":
+          return `Respond strictly in fluent Malayalam (മലയാളം). The entire answer, document analysis, and citations MUST be written in Malayalam script.`;
+        case "Spanish":
+          return `Respond strictly in fluent Spanish (Español). The entire answer, document analysis, and citations MUST be written in Spanish.`;
+        case "French":
+          return `Respond strictly in fluent French (Français). The entire answer, document analysis, and citations MUST be written in French.`;
+        case "German":
+          return `Respond strictly in fluent German (Deutsch). The entire answer, document analysis, and citations MUST be written in German.`;
+        default:
+          return `Respond strictly in English.`;
+      }
+    };
+
+    const langDirective = getLanguageDirective(language);
 
     prompt = `
 You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Intellectual Property laws, Patents Act 1970, Trademarks, Copyrights, Traditional Knowledge Digital Library (TKDL), and Comprehensive Document Analysis.
