@@ -1,3 +1,5 @@
+import fs from "fs/promises";
+import path from "path";
 import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { searchKnowledge } from "./search";
 import { classifyQuestion, QuestionClassification } from "./classifier";
@@ -24,6 +26,21 @@ export {
   getAllLocalizedStatutoryDocs,
   findLocalizedStatutoryDoc,
 };
+
+interface CandidateChunk {
+  document: string;
+  source: string;
+  content: string;
+  section: string;
+  page: string;
+  jurisdiction: string;
+  ipType: string;
+  productType: string;
+  highlight: string;
+  score: number;
+  order: number;
+  isAttachedFile?: boolean;
+}
 
 function isCasualQuestion(question: string) {
   const text = question.toLowerCase().trim();
@@ -353,16 +370,6 @@ function processAttachedFiles(
     .filter((w) => w.length > 2)
     .map((w) => w.replace(/[^\w]/g, ""));
 
-  interface CandidateChunk {
-    document: string;
-    content: string;
-    section: string;
-    page: string;
-    highlight: string;
-    score: number;
-    order: number;
-  }
-
   const allChunks: CandidateChunk[] = [];
   let orderCounter = 0;
 
@@ -426,12 +433,17 @@ function processAttachedFiles(
 
         allChunks.push({
           document: docName,
+          source: docName,
           content: cleanPara,
           section: sectionTitle,
           page: currentPage,
+          jurisdiction: "User Document",
+          ipType: "Document Analysis",
+          productType: "Uploaded Document",
           highlight: bestSentence.slice(0, 250),
           score,
           order: orderCounter++,
+          isAttachedFile: true,
         });
       });
     }
@@ -442,7 +454,7 @@ function processAttachedFiles(
 
   let selected: CandidateChunk[] = [];
   if (totalLength <= 40000 || allChunks.length <= 16) {
-    // Keep all chunks in original document order for 100% complete coverage
+    // Keep all chunks in original document order for complete coverage
     selected = [...allChunks].sort((a, b) => a.order - b.order);
   } else {
     // If very large document, take top relevant chunks + first intro chunk
@@ -457,13 +469,208 @@ function processAttachedFiles(
     documents.push(chunk.content);
     metadatas.push({
       document: chunk.document,
-      source: chunk.document,
+      source: chunk.source,
       section: chunk.section,
       page: chunk.page,
-      jurisdiction: "User Document",
-      ipType: "Document Analysis",
-      productType: "Uploaded Document",
+      jurisdiction: chunk.jurisdiction,
+      ipType: chunk.ipType,
+      productType: chunk.productType,
       isAttachedFile: true,
+      fullText: chunk.content,
+      highlight: chunk.highlight,
+    });
+  }
+
+  return { documents, metadatas };
+}
+
+/**
+ * Retrieve relevant documents across MongoDB Knowledge Base, local disk files, and statutory knowledge.
+ */
+async function retrieveKnowledgeBase(
+  question: string,
+  language: string,
+  userEmail: string
+): Promise<{ documents: string[]; metadatas: DocumentMetadata[] }> {
+  const queryWords = question
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2)
+    .map((w) => w.replace(/[^\w]/g, ""));
+
+  const candidateChunks: CandidateChunk[] = [];
+  let orderCounter = 0;
+
+  // 1. Fetch from MongoDB 'documents' collection
+  try {
+    const client = await clientPromise;
+    const db = client.db("ip-sakti");
+    const mongoDocs = await db
+      .collection("documents")
+      .find({
+        $or: [
+          { rawText: { $exists: true, $ne: "" } },
+          { fileBase64: { $exists: true, $ne: "" } },
+        ],
+      })
+      .toArray();
+
+    for (const doc of mongoDocs) {
+      const text = doc.rawText || "";
+      if (!text || text.trim().length < 20) continue;
+
+      const docName = doc.name || doc.originalName || "Knowledge Document";
+      const paragraphs = text.split(/\n\n+/).filter((p: string) => p.trim().length > 20);
+
+      paragraphs.forEach((p: string, pIdx: number) => {
+        const cleanP = p.trim();
+        const lowerP = cleanP.toLowerCase();
+        let matchScore = 0;
+
+        for (const w of queryWords) {
+          if (lowerP.includes(w)) matchScore += 10;
+          if (docName.toLowerCase().includes(w)) matchScore += 15;
+        }
+
+        if (matchScore > 0) {
+          const sentences = cleanP.match(/[^.!?\n]+[.!?]/g) || [cleanP];
+          let bestSentence = sentences[0] || cleanP.slice(0, 200);
+          let bestSentenceScore = -1;
+          for (const s of sentences) {
+            const lowerS = s.toLowerCase();
+            let sScore = 0;
+            for (const w of queryWords) {
+              if (lowerS.includes(w)) sScore++;
+            }
+            if (sScore > bestSentenceScore) {
+              bestSentenceScore = sScore;
+              bestSentence = s.trim();
+            }
+          }
+
+          candidateChunks.push({
+            document: docName,
+            source: docName,
+            content: cleanP,
+            section: `${docName} • Excerpt ${pIdx + 1}`,
+            page: `Page ${Math.floor(pIdx / 3) + 1}`,
+            jurisdiction: doc.jurisdiction || "India",
+            ipType: doc.ipType || "Knowledge Document",
+            productType: "Knowledge Base Document",
+            highlight: bestSentence.slice(0, 250),
+            score: matchScore,
+            order: orderCounter++,
+          });
+        }
+      });
+    }
+  } catch (mongoErr) {
+    console.warn("MongoDB retrieval warning:", mongoErr);
+  }
+
+  // 2. Fetch from local data/documents directory
+  try {
+    const docsDir = path.join(process.cwd(), "data", "documents");
+    const files = await fs.readdir(docsDir).catch(() => [] as string[]);
+
+    for (const file of files) {
+      if (!file.endsWith(".txt")) continue;
+      try {
+        const content = await fs.readFile(path.join(docsDir, file), "utf-8");
+        const paragraphs = content.split(/\n\n+/).filter((p: string) => p.trim().length > 20);
+        const docTitle = file.replace(/_/g, " ").replace(/\.txt$/i, "");
+
+        paragraphs.forEach((p: string, pIdx: number) => {
+          const cleanP = p.trim();
+          const lowerP = cleanP.toLowerCase();
+          let matchScore = 0;
+
+          for (const w of queryWords) {
+            if (lowerP.includes(w)) matchScore += 10;
+            if (docTitle.toLowerCase().includes(w)) matchScore += 12;
+          }
+
+          if (matchScore > 0) {
+            const sentences = cleanP.match(/[^.!?\n]+[.!?]/g) || [cleanP];
+            let bestSentence = sentences[0] || cleanP.slice(0, 200);
+            let bestSentenceScore = -1;
+            for (const s of sentences) {
+              const lowerS = s.toLowerCase();
+              let sScore = 0;
+              for (const w of queryWords) {
+                if (lowerS.includes(w)) sScore++;
+              }
+              if (sScore > bestSentenceScore) {
+                bestSentenceScore = sScore;
+                bestSentence = s.trim();
+              }
+            }
+
+            candidateChunks.push({
+              document: file,
+              source: docTitle,
+              content: cleanP,
+              section: `${docTitle} • Clause ${pIdx + 1}`,
+              page: `Section ${pIdx + 1}`,
+              jurisdiction: "India",
+              ipType: "Statutory Law",
+              productType: "Statutory Document",
+              highlight: bestSentence.slice(0, 250),
+              score: matchScore,
+              order: orderCounter++,
+            });
+          }
+        });
+      } catch {}
+    }
+  } catch {}
+
+  // 3. Fetch from Statutory Knowledge registry
+  try {
+    const localized = getLocalizedStatutoryKnowledge(language, question);
+    for (const item of localized) {
+      const lowerContent = item.content.toLowerCase();
+      let matchScore = 5;
+      for (const w of queryWords) {
+        if (lowerContent.includes(w)) matchScore += 10;
+        if (item.document.toLowerCase().includes(w)) matchScore += 12;
+      }
+
+      candidateChunks.push({
+        document: item.document,
+        source: item.source,
+        content: item.content,
+        section: item.section,
+        page: item.page,
+        jurisdiction: item.jurisdiction,
+        ipType: item.ipType,
+        productType: item.productType,
+        highlight: item.highlight,
+        score: matchScore,
+        order: orderCounter++,
+      });
+    }
+  } catch {}
+
+  // Filter and pick top relevant candidates
+  const scored = candidateChunks.sort((a, b) => b.score - a.score);
+  // Pick top 4 relevant chunks
+  const topChunks = scored.slice(0, 4);
+
+  const documents: string[] = [];
+  const metadatas: DocumentMetadata[] = [];
+
+  for (const chunk of topChunks) {
+    documents.push(chunk.content);
+    metadatas.push({
+      document: chunk.document,
+      source: chunk.source,
+      section: chunk.section,
+      page: chunk.page,
+      jurisdiction: chunk.jurisdiction,
+      ipType: chunk.ipType,
+      productType: chunk.productType,
+      isAttachedFile: chunk.isAttachedFile,
       fullText: chunk.content,
       highlight: chunk.highlight,
     });
@@ -484,29 +691,13 @@ async function retrieveNode(state: typeof GraphState.State) {
   const hasAttachedFiles = state.attachedFiles && state.attachedFiles.length > 0;
 
   if (hasAttachedFiles) {
-    // 1. Process user-attached files exclusively — DO NOT pollute with default statutory knowledge
     const processed = processAttachedFiles(state.attachedFiles, state.question, lang);
     documents = processed.documents;
     metadatas = processed.metadatas;
-  } else {
-    // 2. Query statutory knowledge ONLY when no user documents are attached
-    const localized = getLocalizedStatutoryKnowledge(lang, state.question);
-    const topLocalized = localized.slice(0, 3);
-
-    for (const item of topLocalized) {
-      documents.push(item.content);
-      metadatas.push({
-        document: item.document,
-        source: item.source,
-        section: item.section,
-        page: item.page,
-        jurisdiction: item.jurisdiction,
-        ipType: item.ipType,
-        productType: item.productType,
-        fullText: item.content,
-        highlight: item.highlight,
-      });
-    }
+  } else if (!state.isCasual) {
+    const kb = await retrieveKnowledgeBase(state.question, lang, state.userEmail || "");
+    documents = kb.documents;
+    metadatas = kb.metadatas;
   }
 
   return {
@@ -603,10 +794,10 @@ Respond conversationally, politely, and briefly in ${language}. Mention that you
         const meta = metadatas[i] || {};
         return `
 [SOURCE ${i + 1}]
-Document: ${meta.document || meta.source || "User Document"}
+Document: ${meta.document || meta.source || "Document"}
 Section: ${meta.section || "General"}
 Page: ${meta.page || "Page 1"}
-Jurisdiction: ${meta.jurisdiction || "User Document"}
+Jurisdiction: ${meta.jurisdiction || "India"}
 IP Type: ${meta.ipType || "Document Analysis"}
 Content Excerpt:
 ${doc}
@@ -660,9 +851,9 @@ ATTACHED DOCUMENT SOURCES:
 ${context}
 
 STRICT INSTRUCTIONS:
-1. Ground your answer strictly, directly, and exclusively on the attached document excerpts provided above.
+1. Ground your answer strictly, directly, and comprehensively on the attached document excerpts provided above.
 2. Answer the user's question completely, addressing all aspects with specific facts, clauses, numerical details, findings, or legal/technical terms present in the document.
-3. DO NOT cite or bring in generic statutory acts (e.g. Patents Act 1970, Biological Diversity Act, Copyright Act, etc.) unless they are explicitly cited in the user's document text.
+3. DO NOT cite generic statutory acts unless they are explicitly cited in the user's document text.
 4. Include exact citations in your answer referring to the document name, section, and page (e.g., "[Source: <DocumentName>, <Section/Page>]").
 5. Quote or highlight exact statements from the document to validate your answer.
 6. Provide a well-structured, clear, professional answer using bullet points or numbered sections in ${language}.
@@ -671,7 +862,7 @@ STRICT INSTRUCTIONS:
       prompt = `
 You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Intellectual Property laws, Patents Act 1970, Trademarks, Copyrights, Traditional Knowledge Digital Library (TKDL), and Comprehensive Legal Guidance.
 
-Answer the user's question accurately using the provided statutory knowledge sources and conversational context.
+Answer the user's question accurately using the provided knowledge sources and conversational context.
 
 ${getLanguageDirective(language)}
 
@@ -689,7 +880,7 @@ ${context}
 GUIDELINES:
 1. Ground your answer thoroughly on the provided knowledge sources.
 2. Provide a well-structured, clear, comprehensive answer with bullet points or numbered sections.
-3. In-text citations: Cite sources as [Source 1], [Source 2], or with statutory act titles where relevant in ${language}.
+3. In-text citations: Cite sources as [Source 1], [Source 2], or with specific document names where relevant in ${language}.
 `;
     } else {
       prompt = `
@@ -834,28 +1025,13 @@ export async function* generateStatutoryResponseStream(
   const hasAttachedFiles = attachedFiles && attachedFiles.length > 0;
 
   if (hasAttachedFiles) {
-    // 3a. Process User-Attached Files exclusively — NO default statutory documents injected
     const processed = processAttachedFiles(attachedFiles, question, language);
     documents = processed.documents;
     metadatas = processed.metadatas;
   } else if (!isCasual) {
-    // 3b. Add Domain-Matched Localized Statutory Knowledge for requested language only when no files are attached
-    const localizedKnowledgeList = getLocalizedStatutoryKnowledge(language, question);
-    const topKnowledge = localizedKnowledgeList.slice(0, 3);
-    for (const item of topKnowledge) {
-      documents.push(item.content);
-      metadatas.push({
-        document: item.document,
-        source: item.source,
-        section: item.section,
-        page: item.page,
-        jurisdiction: item.jurisdiction,
-        ipType: item.ipType,
-        productType: item.productType,
-        fullText: item.content,
-        highlight: item.highlight,
-      });
-    }
+    const kb = await retrieveKnowledgeBase(question, language, userEmail);
+    documents = kb.documents;
+    metadatas = kb.metadatas;
   }
 
   const sources: SourceCitation[] = metadatas.map((meta, idx) => {
@@ -918,7 +1094,7 @@ export async function* generateStatutoryResponseStream(
   const accuracyScore = Math.min(99.8, Number((baseAccuracy + sourceCount * 0.6).toFixed(1)));
   const similarityIndex = Number((0.935 + Math.min(sourceCount * 0.012, 0.06)).toFixed(3));
 
-  // Yield metadata event first
+  // Yield metadata event
   yield {
     event: "meta",
     data: {
@@ -948,10 +1124,10 @@ Respond conversationally, politely, and briefly in ${language}. Mention that you
         const meta = metadatas[i] || {};
         return `
 [SOURCE ${i + 1}]
-Document: ${meta.document || meta.source || "User Document"}
+Document: ${meta.document || meta.source || "Document"}
 Section: ${meta.section || "General"}
 Page: ${meta.page || "Page 1"}
-Jurisdiction: ${meta.jurisdiction || "User Document"}
+Jurisdiction: ${meta.jurisdiction || "India"}
 IP Type: ${meta.ipType || "Document Analysis"}
 Content Excerpt:
 ${doc}
@@ -1008,9 +1184,9 @@ ATTACHED DOCUMENT SOURCES:
 ${context}
 
 STRICT INSTRUCTIONS:
-1. Ground your answer strictly, directly, and exclusively on the attached document excerpts provided above.
+1. Ground your answer strictly, directly, and comprehensively on the attached document excerpts provided above.
 2. Answer the user's question completely, addressing all aspects with specific facts, clauses, numerical details, findings, or legal/technical terms present in the document.
-3. DO NOT cite or bring in generic statutory acts (e.g. Patents Act 1970, Biological Diversity Act, Copyright Act, etc.) unless they are explicitly cited in the user's document text.
+3. DO NOT cite generic statutory acts unless they are explicitly cited in the user's document text.
 4. Include exact citations in your answer referring to the document name, section, and page (e.g., "[Source: <DocumentName>, <Section/Page>]").
 5. Quote or highlight exact statements from the document to validate your answer.
 6. Provide a well-structured, clear, professional answer using bullet points or numbered sections in ${language}.
@@ -1019,7 +1195,7 @@ STRICT INSTRUCTIONS:
       prompt = `
 You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Intellectual Property laws, Patents Act 1970, Trademarks, Copyrights, Traditional Knowledge Digital Library (TKDL), and Comprehensive Legal Guidance.
 
-Answer the user's question accurately using the provided statutory knowledge sources and conversational context.
+Answer the user's question accurately using the provided knowledge sources and conversational context.
 
 ${langDirective}
 
@@ -1038,7 +1214,7 @@ ${context}
 GUIDELINES:
 1. Ground your answer thoroughly on the provided knowledge sources.
 2. Provide a well-structured, clear, comprehensive answer with bullet points or numbered sections.
-3. In-text citations: Cite sources as [Source 1], [Source 2], or with statutory act titles where relevant in ${language}.
+3. In-text citations: Cite sources as [Source 1], [Source 2], or with specific document names where relevant in ${language}.
 4. If short-term previous messages exist, reference earlier discussion points to maintain conversational continuity.
 `;
     } else {

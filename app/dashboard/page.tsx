@@ -678,21 +678,6 @@ export default function UserDashboard() {
               streamClassification = parsed.data.classification;
               streamAccuracyScore = parsed.data.accuracyScore ?? 98.4;
               streamSimilarityIndex = parsed.data.similarityIndex ?? 0.942;
-
-              setMessages((prev) => {
-                const next = [...prev];
-                const lastIdx = next.length - 1;
-                if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
-                  next[lastIdx] = {
-                    ...next[lastIdx],
-                    sources: streamSources,
-                    classification: streamClassification,
-                    accuracyScore: streamAccuracyScore,
-                    similarityIndex: streamSimilarityIndex,
-                  };
-                }
-                return next;
-              });
             } else if (parsed.event === "token" || parsed.event === "text") {
               setIsWriting(true);
               const tokenChunk = typeof parsed.data === "string" ? parsed.data : (parsed.data?.text || "");
@@ -1540,7 +1525,7 @@ export default function UserDashboard() {
                   </div>
 
                   {/* CITATIONS & SOURCES CARDS */}
-                  {msg.sources && msg.sources.length > 0 && (
+                  {msg.sources && msg.sources.length > 0 && Boolean(msg.content && msg.content.trim().length > 5) && (
                     <div className="mt-3.5 pt-3 sm:mt-4 sm:pt-3.5 border-t border-[#1c1c26] space-y-2.5 sm:space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
