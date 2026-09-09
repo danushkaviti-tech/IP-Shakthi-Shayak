@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { IconFileText, IconDownload, IconExternalLink, IconCopy, IconCheck, IconX, IconShield } from "./Icons";
+import { getTranslation } from "@/src/lib/i18n";
 
 export interface CitationData {
   id?: string;
@@ -24,6 +25,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   highlightKeyword?: string;
+  language?: string;
 }
 
 export default function CitationViewerModal({
@@ -31,8 +33,10 @@ export default function CitationViewerModal({
   isOpen,
   onClose,
   highlightKeyword = "",
+  language = "English",
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const t = getTranslation(language);
 
   if (!isOpen || !citation) return null;
 
@@ -110,9 +114,9 @@ export default function CitationViewerModal({
                 </span>
               </div>
               <p className="text-xs text-zinc-400 mt-1 flex items-center gap-2 font-mono text-[10px] sm:text-[11px] flex-wrap">
-                <span>Jurisdiction: {citation.jurisdiction || "India"}</span>
+                <span>{t.jurisdictionLabel}: {citation.jurisdiction || "India"}</span>
                 <span>•</span>
-                <span>Domain: {citation.ipType || "General IP"}</span>
+                <span>{t.domainLabel}: {citation.ipType || "General IP"}</span>
               </p>
             </div>
           </div>
@@ -132,11 +136,11 @@ export default function CitationViewerModal({
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
               <span className="text-xs font-mono text-zinc-300">
-                Factual Grounding Alignment:
+                {t.factualGroundingAlignment}
               </span>
             </div>
             <span className="text-xs font-mono font-bold text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
-              {citation.confidence}% Confidence
+              {citation.confidence}% {t.confidenceBadge}
             </span>
           </div>
 
@@ -145,7 +149,7 @@ export default function CitationViewerModal({
             {citation.highlightPoint && (
               <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 leading-relaxed font-sans">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300 font-semibold block mb-1">
-                  Key Verified Grounding Point:
+                  {t.keyVerifiedPoint}
                 </span>
                 <p className="font-medium text-amber-100">{citation.highlightPoint}</p>
               </div>
@@ -153,11 +157,11 @@ export default function CitationViewerModal({
 
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider font-mono">
-                Full Statutory Source Text
+                {t.fullSourceText}
               </span>
               <span className="text-[11px] text-amber-300/80 font-mono flex items-center gap-1">
                 <span>✦</span>
-                <span>Exact Match Text</span>
+                <span>{t.exactMatchText}</span>
               </span>
             </div>
 
@@ -176,12 +180,12 @@ export default function CitationViewerModal({
             {copied ? (
               <>
                 <IconCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Copied</span>
+                <span>{t.copiedAction}</span>
               </>
             ) : (
               <>
                 <IconCopy className="w-3.5 h-3.5" />
-                <span>Copy Excerpt</span>
+                <span>{t.copyExcerpt}</span>
               </>
             )}
           </button>
@@ -194,7 +198,7 @@ export default function CitationViewerModal({
               className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-medium text-zinc-200 transition flex items-center gap-1.5"
             >
               <IconExternalLink className="w-3.5 h-3.5" />
-              <span>Open Document</span>
+              <span>{t.openDocument}</span>
             </a>
 
             <a
@@ -203,7 +207,7 @@ export default function CitationViewerModal({
               className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white text-black hover:bg-zinc-200 font-semibold text-xs transition flex items-center gap-1.5 shadow-sm"
             >
               <IconDownload className="w-3.5 h-3.5" />
-              <span>Download</span>
+              <span>{t.download}</span>
             </a>
           </div>
         </div>

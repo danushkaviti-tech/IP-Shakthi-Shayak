@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconFileText, IconX, IconCheck, IconScale, IconSparkles } from "./Icons";
 import { ChunkEfficiencyMetrics, PieChartSegment } from "@/lib/rag/chunk";
+import { getTranslation } from "@/src/lib/i18n";
 
 interface Props {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface Props {
   fileName: string;
   fileSize?: number;
   metrics?: ChunkEfficiencyMetrics | null;
+  language?: string;
 }
 
 export default function ChunkingAccuracyModal({
@@ -18,8 +20,10 @@ export default function ChunkingAccuracyModal({
   fileName,
   fileSize,
   metrics,
+  language = "English",
 }: Props) {
   const [activeSegment, setActiveSegment] = useState<PieChartSegment | null>(null);
+  const t = getTranslation(language);
 
   if (!isOpen || !metrics) return null;
 
@@ -75,16 +79,16 @@ export default function ChunkingAccuracyModal({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-xs sm:text-base text-white truncate max-w-[200px] sm:max-w-md">
-                  Chunking & Accuracy Analysis
+                  {t.chunkingAnalysisTitle}
                 </h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
-                  {metrics.status || "Optimal"}
+                  {metrics.status || t.optimalStatus}
                 </span>
               </div>
               <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-2 font-mono text-[10px] sm:text-xs flex-wrap">
                 <span className="text-zinc-200 truncate max-w-[140px] sm:max-w-xs">{fileName}</span>
                 {fileSize && <span>• {Math.round(fileSize / 1024)} KB</span>}
-                <span>• {metrics.totalChunks} Chunks</span>
+                <span>• {metrics.totalChunks} {t.chunksLabel}</span>
               </p>
             </div>
           </div>

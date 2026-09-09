@@ -9,6 +9,7 @@ import CitationViewerModal, { CitationData } from "@/src/components/CitationView
 import ChunkingAccuracyModal from "@/src/components/ChunkingAccuracyModal";
 import { splitText, evaluateChunkingEfficiency, ChunkEfficiencyMetrics } from "@/lib/rag/chunk";
 import PWAInstallButton from "@/src/components/PWAInstallButton";
+import { getTranslation } from "@/src/lib/i18n";
 import {
   IconSparkles,
   IconShield,
@@ -68,29 +69,6 @@ interface Message {
   };
 }
 
-const THINKING_STAGES = [
-  {
-    title: "Interpreting Query Intent",
-    desc: "Extracting patent taxonomy, technical domain, and statutory classification...",
-    badge: "Stage 1/4",
-  },
-  {
-    title: "Searching Statutory Archives",
-    desc: "Querying Indian Patent Act 1970, TKDL & AYUSH regulatory corpus...",
-    badge: "Stage 2/4",
-  },
-  {
-    title: "Evaluating Precedents & Section Exemptions",
-    desc: "Checking Section 3(p), 3(d), 3(e) exclusions and controller decisions...",
-    badge: "Stage 3/4",
-  },
-  {
-    title: "Synthesizing Grounded Analysis",
-    desc: "Formulating legal rationale with precise statutory grounding & citations...",
-    badge: "Stage 4/4",
-  },
-];
-
 export default function UserDashboard() {
   const [user, setUser] = useState<any>(null);
   const [question, setQuestion] = useState("");
@@ -104,6 +82,25 @@ export default function UserDashboard() {
   const [language, setLanguage] = useState("English");
   const [autoReadVoice, setAutoReadVoice] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedLang = localStorage.getItem("ipsakti_language");
+      if (savedLang) {
+        setLanguage(savedLang);
+      }
+    }
+  }, []);
+
+  function handleLanguageChange(newLang: string) {
+    setLanguage(newLang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ipsakti_language", newLang);
+    }
+  }
+
+  const t = getTranslation(language);
+  const THINKING_STAGES = t.thinkingStages;
 
   // Attached files state
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -233,7 +230,7 @@ export default function UserDashboard() {
   async function handleThumbsUp(index: number, answer: string) {
     const priorUserMsg = [...messages.slice(0, index)].reverse().find((m) => m.role === "user");
     setFeedbackMap((prev) => ({ ...prev, [index]: "positive" }));
-    setFeedbackToast("✓ Thank you! Positive response recorded for model training & alignment.");
+    setFeedbackToast(t.feedbackToastPositive);
     setTimeout(() => setFeedbackToast(""), 3500);
 
     try {
@@ -270,7 +267,7 @@ export default function UserDashboard() {
     const { index, question, answer } = negativeFeedbackModal;
     setFeedbackMap((prev) => ({ ...prev, [index]: "negative" }));
     setNegativeFeedbackModal(null);
-    setFeedbackToast("✓ Feedback submitted. Stored for dataset fine-tuning & model improvement.");
+    setFeedbackToast(t.feedbackToastNegative);
     setTimeout(() => setFeedbackToast(""), 3500);
 
     try {
@@ -325,7 +322,7 @@ export default function UserDashboard() {
         if (data.success && data.session) {
           setCurrentSessionId(data.session.id);
           setMessages(data.session.messages || []);
-          if (data.session.language) setLanguage(data.session.language);
+          if (data.session.language) handleLanguageChange(data.session.language);
         }
       }
     } catch (err) {
@@ -811,7 +808,7 @@ export default function UserDashboard() {
                   <IconThumbDown className="w-3.5 h-3.5" />
                 </div>
                 <h3 className="font-semibold text-xs sm:text-sm text-white">
-                  Provide Feedback to Train Model
+                  {t.feedbackModalTitle}
                 </h3>
               </div>
               <button
@@ -825,18 +822,11 @@ export default function UserDashboard() {
 
             <div className="space-y-3">
               <p className="text-xs text-zinc-400">
-                What went wrong with this response? Select all that apply:
+                {t.feedbackSelectTags}
               </p>
 
               <div className="flex flex-wrap gap-1.5">
-                {[
-                  "Factually incorrect",
-                  "Missing statutory citation",
-                  "Missing TKDL prior art",
-                  "Too verbose",
-                  "Unclear explanation",
-                  "Wrong jurisdiction",
-                ].map((tag) => {
+                {t.feedbackTags.map((tag) => {
                   const isSelected = selectedTags.includes(tag);
                   return (
                     <button
@@ -861,12 +851,12 @@ export default function UserDashboard() {
 
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">
-                  Additional notes or corrections (Optional):
+                  {t.feedbackNotesLabel}
                 </label>
                 <textarea
                   value={feedbackComment}
                   onChange={(e) => setFeedbackComment(e.target.value)}
-                  placeholder="Explain what the correct statutory reference or answer should be..."
+                  placeholder={t.feedbackNotesPlaceholder}
                   rows={3}
                   className="w-full rounded-xl bg-[#08080c] border border-[#20202c] p-2.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 resize-none font-sans"
                 />
@@ -879,14 +869,14 @@ export default function UserDashboard() {
                 onClick={() => setNegativeFeedbackModal(null)}
                 className="px-3 py-1.5 rounded-xl bg-[#161620] hover:bg-[#1e1e28] text-zinc-300 text-xs transition"
               >
-                Cancel
+                {t.cancelBtn}
               </button>
               <button
                 type="button"
                 onClick={submitNegativeFeedback}
                 className="px-4 py-1.5 rounded-xl bg-white text-black hover:bg-zinc-200 font-semibold text-xs transition shadow-sm"
               >
-                Submit Feedback
+                {t.submitFeedbackBtn}
               </button>
             </div>
           </div>
@@ -920,10 +910,10 @@ export default function UserDashboard() {
               />
               <div className="leading-tight">
                 <span className="font-semibold text-xs text-white block">
-                  IP-SAKTI RAG
+                  {t.appName}
                 </span>
                 <span className="text-[10px] text-zinc-500 font-mono">
-                  Enterprise v2.5
+                  {t.appSubtitle}
                 </span>
               </div>
             </div>
@@ -941,9 +931,9 @@ export default function UserDashboard() {
           >
             <span className="flex items-center gap-2">
               <IconPlus className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-colors" />
-              <span>New Session</span>
+              <span>{t.newSession}</span>
             </span>
-            <span className="text-[10px] text-zinc-500 font-mono">⌘K</span>
+            <span className="text-[10px] text-zinc-500 font-mono">{t.newSessionShortcut}</span>
           </button>
         </div>
 
@@ -952,10 +942,10 @@ export default function UserDashboard() {
           <div>
             <div className="flex items-center justify-between px-2 mb-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono">
-                Consultation History
+                {t.historyHeader}
               </p>
               {sessionsLoading && (
-                <span className="text-[9px] text-zinc-500 font-mono animate-pulse">Syncing...</span>
+                <span className="text-[9px] text-zinc-500 font-mono animate-pulse">{t.syncing}</span>
               )}
             </div>
 
@@ -968,7 +958,7 @@ export default function UserDashboard() {
                       {today.length > 0 && (
                         <div className="space-y-1">
                           <span className="px-2 text-[9px] font-mono text-zinc-500 uppercase tracking-wider block">
-                            Today
+                            {t.today}
                           </span>
                           {today.map((s) => {
                             const isActive = s.id === currentSessionId;
@@ -1011,7 +1001,7 @@ export default function UserDashboard() {
                       {pastWeek.length > 0 && (
                         <div className="space-y-1">
                           <span className="px-2 text-[9px] font-mono text-zinc-500 uppercase tracking-wider block">
-                            Previous 7 Days
+                            {t.previous7Days}
                           </span>
                           {pastWeek.map((s) => {
                             const isActive = s.id === currentSessionId;
@@ -1054,7 +1044,7 @@ export default function UserDashboard() {
                       {older.length > 0 && (
                         <div className="space-y-1">
                           <span className="px-2 text-[9px] font-mono text-zinc-500 uppercase tracking-wider block">
-                            Older Consultations
+                            {t.olderConsultations}
                           </span>
                           {older.map((s) => {
                             const isActive = s.id === currentSessionId;
@@ -1099,7 +1089,7 @@ export default function UserDashboard() {
               </div>
             ) : (
               <p className="px-2 text-xs text-zinc-600 font-mono text-[11px]">
-                No saved consultations yet. Ask a question to begin.
+                {t.noSavedSessions}
               </p>
             )}
           </div>
@@ -1107,18 +1097,13 @@ export default function UserDashboard() {
           {/* DOMAIN MODULES */}
           <div>
             <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono mb-2">
-              Statutory Frameworks
+              {t.statutoryFrameworks}
             </p>
             <div className="space-y-1">
-              {[
-                { title: "Patents Act Section 3(p) Bar", desc: "Traditional Knowledge Criteria" },
-                { title: "TKDL Prior Art Repository", desc: "Anticipation Verification" },
-                { title: "Geographical Indications", desc: "Herbal Formulation Registration" },
-                { title: "AYUSH Licensing Guidelines", desc: "Regulatory Compliance" },
-              ].map((preset, idx) => (
+              {t.statutoryPresets.map((preset, idx) => (
                 <button
                   key={idx}
-                  onClick={() => askAI(preset.title)}
+                  onClick={() => askAI(preset.query || preset.title)}
                   className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-[#15151c] border border-transparent hover:border-[#22222c] text-[11px] text-zinc-300 transition block group"
                 >
                   <p className="font-medium text-zinc-200 group-hover:text-white truncate">
@@ -1140,9 +1125,9 @@ export default function UserDashboard() {
             >
               <span className="flex items-center gap-2">
                 <IconShield className="w-3.5 h-3.5" />
-                <span>Admin Portal</span>
+                <span>{t.adminPortal}</span>
               </span>
-              <span className="text-[10px] font-mono opacity-60">Control</span>
+              <span className="text-[10px] font-mono opacity-60">{t.adminControl}</span>
             </Link>
           )}
 
@@ -1153,7 +1138,7 @@ export default function UserDashboard() {
               </div>
               <div className="min-w-0">
                 <p className="font-medium text-xs text-zinc-200 truncate">
-                  {user?.name || "Researcher"}
+                  {user?.name || t.userDefaultName}
                 </p>
                 <p className="text-[10px] text-zinc-500 truncate font-mono">
                   {user?.email || "user@ipsakti.gov.in"}
@@ -1163,10 +1148,10 @@ export default function UserDashboard() {
 
             <button
               onClick={handleLogout}
-              title="Sign out"
+              title={t.signOut}
               className="text-xs text-zinc-400 hover:text-rose-400 px-2 py-1 transition"
             >
-              Sign out
+              {t.signOut}
             </button>
           </div>
         </div>
@@ -1187,13 +1172,13 @@ export default function UserDashboard() {
 
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-semibold text-xs tracking-tight text-white truncate max-w-[125px] xs:max-w-[165px] sm:max-w-none">
-                IP-SAKTI Intelligence
+                {t.appName}
               </span>
               <span className="hidden sm:inline-flex items-center gap-2 text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#0c1612] text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)] shrink-0">
                 <span className="relative flex h-2 w-2 items-center justify-center">
                   <span className="beacon-light inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                 </span>
-                <span className="font-semibold tracking-wide">LangGraph Pipeline</span>
+                <span className="font-semibold tracking-wide">{t.pipelineBadge}</span>
               </span>
             </div>
           </div>
@@ -1205,13 +1190,13 @@ export default function UserDashboard() {
                 className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-zinc-100 text-black font-semibold text-xs hover:bg-zinc-200 transition shadow-sm"
               >
                 <IconShield className="w-3.5 h-3.5" />
-                <span>Admin Portal</span>
+                <span>{t.adminPortal}</span>
               </Link>
             )}
 
             <PWAInstallButton />
 
-            <LanguageSelector value={language} onChange={setLanguage} />
+            <LanguageSelector value={language} onChange={handleLanguageChange} />
 
             <label className="hidden md:flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
               <input
@@ -1220,7 +1205,7 @@ export default function UserDashboard() {
                 onChange={(e) => setAutoReadVoice(e.target.checked)}
                 className="rounded border-zinc-700 bg-zinc-900 text-white focus:ring-0 accent-white"
               />
-              <span className="text-[11px] font-mono">Auto Read</span>
+              <span className="text-[11px] font-mono">{t.autoRead}</span>
             </label>
 
             {messages.length > 0 && (
@@ -1228,7 +1213,7 @@ export default function UserDashboard() {
                 onClick={startNewChat}
                 className="text-[10px] sm:text-xs text-zinc-400 hover:text-zinc-200 transition px-2 py-1 font-mono rounded bg-[#121218] border border-[#1e1e28]"
               >
-                Clear
+                {t.clearChat}
               </button>
             )}
           </div>
@@ -1248,37 +1233,16 @@ export default function UserDashboard() {
 
                 <div className="space-y-1.5 max-w-lg">
                   <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                    IP-SAKTI Regulatory & Patent Intelligence
+                    {t.heroTitle}
                   </h2>
                   <p className="text-xs text-zinc-400 leading-relaxed font-sans">
-                    Autonomous RAG pipeline evaluating Indian & Global patent acts, TKDL prior-art formulation repositories, and AYUSH regulatory compliance.
+                    {t.heroSubtitle}
                   </p>
                 </div>
 
                 {/* SUGGESTION MODULES */}
                 <div className="grid sm:grid-cols-2 gap-3 w-full max-w-xl text-left">
-                  {[
-                    {
-                      title: "Section 3(p) Patent Evaluation",
-                      subtitle: "Statutory bar on Ayurvedic traditional components",
-                      prompt: "Can an Ayurvedic formulation be patented under Section 3(p) of the Indian Patents Act 1970?",
-                    },
-                    {
-                      title: "TKDL Prior-Art Verification",
-                      subtitle: "Defensive defense against biopiracy and novelty loss",
-                      prompt: "What are Traditional Knowledge Digital Library (TKDL) provisions and prior-art regulations?",
-                    },
-                    {
-                      title: "Geographical Indication (GI) Tag",
-                      subtitle: "Registration process for herbal and plant formulations",
-                      prompt: "What is the procedure to register a Geographical Indication (GI) tag for herbal medicine in India?",
-                    },
-                    {
-                      title: "Attach & Audit Claim Document",
-                      subtitle: "Upload PDF formulation to verify synergism & NBA rules",
-                      prompt: "Explain how to evaluate patent claims for natural botanical extracts.",
-                    },
-                  ].map((card, i) => (
+                  {t.suggestions.map((card, i) => (
                     <button
                       key={i}
                       onClick={() => askAI(card.prompt)}
@@ -1392,7 +1356,7 @@ export default function UserDashboard() {
                               <span className="text-xs font-mono text-zinc-300 flex items-center gap-1.5">
                                 {loading && index === messages.length - 1 ? (
                                   <>
-                                    <span className="text-emerald-400 font-medium">Thinking</span>
+                                    <span className="text-emerald-400 font-medium">{t.thinking}</span>
                                     <span className="text-zinc-400">({thinkingSeconds.toFixed(1)}s)</span>
                                     <span className="inline-flex gap-1 items-center ml-1">
                                       <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
@@ -1402,14 +1366,14 @@ export default function UserDashboard() {
                                   </>
                                 ) : (
                                   <>
-                                    <span className="text-zinc-400">Thought for</span>
+                                    <span className="text-zinc-400">{t.thoughtFor}</span>
                                     <span className="text-zinc-200 font-medium">{msg.thoughtDuration || "2.4s"}</span>
                                   </>
                                 )}
                               </span>
                             </div>
                             <div className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-300">
-                              <span>{expandedThoughts[index] ? "Hide" : "Show"}</span>
+                              <span>{expandedThoughts[index] ? t.hideThoughts : t.showThoughts}</span>
                               {expandedThoughts[index] ? (
                                 <IconChevronUp className="w-3.5 h-3.5" />
                               ) : (
@@ -1440,7 +1404,7 @@ export default function UserDashboard() {
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                             </span>
-                            <span className="font-medium text-zinc-300">Synthesizing & writing response in real-time...</span>
+                            <span className="font-medium text-zinc-300">{t.realtimeWritingBanner}</span>
                           </div>
                         )}
                         <span className="text-zinc-100">{msg.content}</span>
@@ -1469,7 +1433,7 @@ export default function UserDashboard() {
                             <div className="flex items-center gap-2 flex-wrap justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs sm:text-sm font-medium text-white tracking-tight flex items-center gap-1.5">
-                                  <span>Thinking</span>
+                                  <span>{t.thinking}</span>
                                   <span className="inline-flex gap-1 items-center">
                                     <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
                                     <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" style={{ animationDelay: "200ms" }} />
@@ -1510,10 +1474,10 @@ export default function UserDashboard() {
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
                           <IconScale className="w-3.5 h-3.5 text-zinc-400" />
-                          <span>Verified Statutory Sources ({msg.sources.length})</span>
+                          <span>{t.statutorySourcesTitle} ({msg.sources.length})</span>
                         </span>
                         <span className="text-[9px] sm:text-[10px] text-zinc-500 font-mono">
-                          Inspect & Download
+                          {t.inspectAndDownload}
                         </span>
                       </div>
 
@@ -1531,7 +1495,7 @@ export default function UserDashboard() {
                                   <span className="truncate">{src.document}</span>
                                 </span>
                                 <span className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-                                  {src.confidence}% Match
+                                  {src.confidence}% {t.matchScore}
                                 </span>
                               </div>
 
@@ -1542,7 +1506,7 @@ export default function UserDashboard() {
                               {/* HIGHLIGHTED POINT EXTRACTED FROM STATUTORY TEXT */}
                               <div className="p-2 sm:p-2.5 rounded-lg bg-[#040406] border border-[#181822] text-[10px] sm:text-[11px] text-zinc-300 leading-relaxed font-sans overflow-hidden">
                                 <span className="text-[9px] sm:text-[10px] text-amber-400/90 font-mono block mb-0.5">
-                                  Cited Grounding Excerpt:
+                                  {t.citedGroundingExcerpt}
                                 </span>
                                 <mark className="bg-amber-400/20 text-amber-200 px-1 py-0.5 rounded font-medium border border-amber-400/30 break-words">
                                   {src.highlightPoint || src.snippet}
@@ -1553,7 +1517,7 @@ export default function UserDashboard() {
                             <div className="pt-2 border-t border-[#1a1a24] flex items-center justify-between gap-1 text-[10px] sm:text-[11px] font-mono">
                               <span className="text-zinc-400 group-hover:text-zinc-200 flex items-center gap-1 truncate">
                                 <IconSearch className="w-3 h-3 text-zinc-400 shrink-0" />
-                                <span className="truncate">Inspect</span>
+                                <span className="truncate">{t.inspect}</span>
                               </span>
                               <a
                                 href={src.downloadUrl}
@@ -1563,7 +1527,7 @@ export default function UserDashboard() {
                                 title="Download source document"
                               >
                                 <IconDownload className="w-3 h-3" />
-                                <span>Download</span>
+                                <span>{t.download}</span>
                               </a>
                             </div>
                           </div>
@@ -1581,10 +1545,10 @@ export default function UserDashboard() {
                           <span>{msg.tokens?.isCached ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s (Cache)` : msg.tokens?.latencyMs ? `${(msg.tokens.latencyMs / 1000).toFixed(2)}s` : "0.85s"}</span>
                         </span>
                         <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] sm:text-[10px]">
-                          Grounding: {msg.accuracyScore ?? 98.4}%
+                          {t.groundingLabel}: {msg.accuracyScore ?? 98.4}%
                         </span>
                         {msg.tokens && (
-                          <span className="hidden sm:inline text-[10px] text-zinc-400">Tokens: {msg.tokens.totalTokens}</span>
+                          <span className="hidden sm:inline text-[10px] text-zinc-400">{t.tokensLabel}: {msg.tokens.totalTokens}</span>
                         )}
                       </div>
 
@@ -1600,7 +1564,7 @@ export default function UserDashboard() {
                           }`}
                         >
                           <IconThumbUp className="w-3 h-3" />
-                          <span>Good</span>
+                          <span>{t.goodFeedback}</span>
                         </button>
 
                         <button
@@ -1613,7 +1577,7 @@ export default function UserDashboard() {
                           }`}
                         >
                           <IconThumbDown className="w-3 h-3" />
-                          <span>Bad</span>
+                          <span>{t.badFeedback}</span>
                         </button>
 
                         <button
@@ -1623,12 +1587,12 @@ export default function UserDashboard() {
                           {copiedIndex === index ? (
                             <>
                               <IconCheck className="w-3 h-3 text-emerald-400" />
-                              <span>Copied</span>
+                              <span>{t.copiedAction}</span>
                             </>
                           ) : (
                             <>
                               <IconCopy className="w-3 h-3" />
-                              <span>Copy</span>
+                              <span>{t.copyAction}</span>
                             </>
                           )}
                         </button>
@@ -1639,7 +1603,7 @@ export default function UserDashboard() {
                           className="px-2 py-1 rounded bg-[#111118] border border-[#1e1e28] text-zinc-400 hover:text-rose-400 transition flex items-center gap-1 text-[10px] sm:text-xs"
                         >
                           <IconTrash className="w-3 h-3" />
-                          <span>Delete</span>
+                          <span>{t.deleteAction}</span>
                         </button>
 
                         <VoiceAssistant
@@ -1660,7 +1624,7 @@ export default function UserDashboard() {
                 <div className="h-6 w-6 rounded-lg bg-[#14141c] border border-[#222230] flex items-center justify-center text-white">
                   <IconSparkles className="w-3.5 h-3.5 text-zinc-300" />
                 </div>
-                <span>Executing LangGraph StateGraph pipeline in {language}...</span>
+                <span>{t.pipelineRunning}</span>
               </div>
             )}
 
@@ -1737,7 +1701,7 @@ export default function UserDashboard() {
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                placeholder={`Ask IP-SAKTI in ${language} or attach regulatory PDF...`}
+                placeholder={t.inputPlaceholder}
                 className="w-full bg-transparent px-3.5 sm:px-4 pt-3 sm:pt-3.5 pb-11 sm:pb-12 text-xs sm:text-sm text-white placeholder:text-zinc-500 outline-none resize-none min-h-[48px] sm:min-h-[52px] max-h-[180px]"
               />
 
@@ -1752,7 +1716,7 @@ export default function UserDashboard() {
                     className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-[#161620] hover:bg-[#1e1e2a] text-xs font-medium text-zinc-300 hover:text-white transition border border-[#242434]"
                   >
                     <IconPaperclip className="w-3.5 h-3.5 text-zinc-400" />
-                    <span className="hidden sm:inline">Add Files</span>
+                    <span className="hidden sm:inline">{t.addFiles}</span>
                   </button>
 
                   <VoiceAssistant
@@ -1780,7 +1744,7 @@ export default function UserDashboard() {
             </form>
 
             <p className="text-center text-[9px] sm:text-[10px] text-zinc-500 font-mono mt-1.5 truncate px-2">
-              IP-SAKTI Sahayak Enterprise RAG • Verify critical patent citations against official Gazette notifications.
+              {t.footerDisclaimer}
             </p>
           </div>
         </div>
@@ -1810,25 +1774,17 @@ export default function UserDashboard() {
                 <IconThumbDown className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white">Provide Model Training Feedback</h3>
-                <p className="text-[11px] text-zinc-400">Your feedback helps fine-tune IP-SAKTI RAG and align responses</p>
+                <h3 className="text-sm font-semibold text-white">{t.feedbackModalTitle}</h3>
+                <p className="text-[11px] text-zinc-400">{t.feedbackModalSubtitle}</p>
               </div>
             </div>
 
             <div className="my-4">
               <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 block">
-                What went wrong? (Select all that apply)
+                {t.feedbackSelectTags}
               </label>
               <div className="flex flex-wrap gap-2">
-                {[
-                  "Factually incorrect",
-                  "Missing statutory citation",
-                  "Outdated patent/TKDL law",
-                  "Guardrail too restrictive",
-                  "Poor translation/language",
-                  "Hallucinated section",
-                  "Incomplete answer",
-                ].map((tag) => {
+                {t.feedbackTags.map((tag) => {
                   const active = selectedTags.includes(tag);
                   return (
                     <button
@@ -1854,12 +1810,12 @@ export default function UserDashboard() {
 
             <div className="mb-4">
               <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 block">
-                Additional Details / Expected Correct Output
+                {t.feedbackNotesLabel}
               </label>
               <textarea
                 value={feedbackComment}
                 onChange={(e) => setFeedbackComment(e.target.value)}
-                placeholder="Explain the correct legal provision or why this answer was inaccurate..."
+                placeholder={t.feedbackNotesPlaceholder}
                 rows={3}
                 className="w-full rounded-xl bg-[#14141c] border border-[#222230] p-3 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 resize-none"
               />
@@ -1871,14 +1827,14 @@ export default function UserDashboard() {
                 onClick={() => setNegativeFeedbackModal(null)}
                 className="px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#181824] transition"
               >
-                Cancel
+                {t.cancelBtn}
               </button>
               <button
                 type="button"
                 onClick={submitNegativeFeedback}
                 className="px-4 py-2 rounded-xl text-xs font-semibold bg-white text-black hover:bg-zinc-200 transition shadow-sm"
               >
-                Submit for Model Training
+                {t.submitFeedbackBtn}
               </button>
             </div>
           </div>
@@ -1891,6 +1847,7 @@ export default function UserDashboard() {
         citation={selectedCitation}
         onClose={() => setCitationModalOpen(false)}
         highlightKeyword={activeSearchQuery}
+        language={language}
       />
 
       {/* CHUNKING ACCURACY & PIE GRAPH MODAL */}
@@ -1900,6 +1857,7 @@ export default function UserDashboard() {
         fileName={selectedChunkFile?.name || "Uploaded Document"}
         fileSize={selectedChunkFile?.size}
         metrics={selectedChunkFile?.metrics}
+        language={language}
       />
     </main>
   );
