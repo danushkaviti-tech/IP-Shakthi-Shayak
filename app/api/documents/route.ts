@@ -5,50 +5,77 @@ import { ObjectId } from "mongodb";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { findLocalizedStatutoryDoc } from "@/lib/rag/statutoryKnowledge";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
-    const name = searchParams.get("name") || searchParams.get("file");
+    const rawName = searchParams.get("name") || searchParams.get("file");
 
     // 1. Download Action
     if (action === "download" || searchParams.get("download")) {
-      if (!name) {
+      if (!rawName) {
         return NextResponse.json({ error: "File name is required" }, { status: 400 });
       }
-      const safeName = path.basename(name).replace(/[^a-zA-Z0-9._-]/g, "_");
+
+      const decodedName = decodeURIComponent(rawName).trim();
+      const safeBaseName = path.basename(decodedName).replace(/[\\/:\*\?"<>\|]/g, "_");
+
+      // Check Localized Statutory Knowledge Registry first
+      const statutoryDoc = findLocalizedStatutoryDoc(decodedName) || findLocalizedStatutoryDoc(safeBaseName);
+      if (statutoryDoc) {
+        const fullContent = `${statutoryDoc.source}\n${statutoryDoc.section}\nJurisdiction: ${statutoryDoc.jurisdiction}\nIP Domain: ${statutoryDoc.ipType}\nCategory: ${statutoryDoc.productType}\n\nKey Statutory Principle:\n${statutoryDoc.highlight}\n\nFull Official Text:\n${statutoryDoc.content}\n\n---\nVerified by IP-SAKTI Sahayak Knowledge Repository`;
+        const encodedFilename = encodeURIComponent(safeBaseName.endsWith(".txt") ? safeBaseName : `${safeBaseName}.txt`);
+        return new NextResponse(fullContent, {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
+          },
+        });
+      }
+
+      // Check MongoDB Cloud Database
       const client = await clientPromise;
       const db = client.db("ip-sakti");
       const doc = await db.collection("documents").findOne({
-        $or: [{ name: safeName }, { originalName: safeName }, { name }, { name: name.trim() }],
+        $or: [
+          { name: decodedName },
+          { originalName: decodedName },
+          { name: safeBaseName },
+          { originalName: safeBaseName },
+          { name: rawName },
+        ],
       });
 
       if (doc?.fileBase64) {
         const fileBuffer = Buffer.from(doc.fileBase64, "base64");
-        const isPdf = (doc.name || safeName).toLowerCase().endsWith(".pdf");
+        const isPdf = (doc.name || safeBaseName).toLowerCase().endsWith(".pdf");
+        const encodedFilename = encodeURIComponent(safeBaseName);
         return new NextResponse(fileBuffer, {
           headers: {
-            "Content-Type": isPdf ? "application/pdf" : "text/plain",
-            "Content-Disposition": `attachment; filename="${safeName}"`,
+            "Content-Type": isPdf ? "application/pdf" : "text/plain; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
           },
         });
       }
 
       // Check local files or /tmp
       const possiblePaths = [
-        path.join(process.cwd(), "data", "documents", safeName),
-        path.join(os.tmpdir(), "ip-sakti-docs", safeName),
+        path.join(process.cwd(), "data", "documents", safeBaseName),
+        path.join(process.cwd(), "data", "documents", decodedName),
+        path.join(os.tmpdir(), "ip-sakti-docs", safeBaseName),
       ];
 
       for (const p of possiblePaths) {
         try {
           const fileBuffer = await fs.readFile(p);
-          const isPdf = safeName.toLowerCase().endsWith(".pdf");
+          const isPdf = safeBaseName.toLowerCase().endsWith(".pdf");
+          const encodedFilename = encodeURIComponent(safeBaseName);
           return new NextResponse(fileBuffer, {
             headers: {
-              "Content-Type": isPdf ? "application/pdf" : "text/plain",
-              "Content-Disposition": `attachment; filename="${safeName}"`,
+              "Content-Type": isPdf ? "application/pdf" : "text/plain; charset=utf-8",
+              "Content-Disposition": `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
             },
           });
         } catch {
@@ -58,10 +85,11 @@ export async function GET(req: NextRequest) {
 
       if (doc) {
         const content = doc.rawText || `IP-SAKTI Official Knowledge Document\n\nTitle: ${doc.name}\nJurisdiction: ${doc.jurisdiction || "India"}\nIP Type: ${doc.ipType || "General"}\nStatus: ${doc.status}\nIndexed Chunks: ${doc.chunks}\nUploaded: ${new Date(doc.uploadedAt).toLocaleString()}\n\nFull digital record verified by IP-SAKTI Sahayak RAG.`;
+        const encodedFilename = encodeURIComponent(safeBaseName.endsWith(".txt") ? safeBaseName : `${safeBaseName}.txt`);
         return new NextResponse(content, {
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
-            "Content-Disposition": `attachment; filename="${safeName}.txt"`,
+            "Content-Disposition": `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
           },
         });
       }
@@ -71,40 +99,65 @@ export async function GET(req: NextRequest) {
 
     // 2. View / Preview Action
     if (action === "view" || searchParams.get("view")) {
-      if (!name) {
+      if (!rawName) {
         return NextResponse.json({ error: "File name is required" }, { status: 400 });
       }
-      const safeName = path.basename(name).replace(/[^a-zA-Z0-9._-]/g, "_");
+
+      const decodedName = decodeURIComponent(rawName).trim();
+      const safeBaseName = path.basename(decodedName).replace(/[\\/:\*\?"<>\|]/g, "_");
+
+      // Check Localized Statutory Knowledge Registry
+      const statutoryDoc = findLocalizedStatutoryDoc(decodedName) || findLocalizedStatutoryDoc(safeBaseName);
+      if (statutoryDoc) {
+        const fullContent = `${statutoryDoc.source}\n${statutoryDoc.section}\nJurisdiction: ${statutoryDoc.jurisdiction}\nIP Domain: ${statutoryDoc.ipType}\nCategory: ${statutoryDoc.productType}\n\nKey Statutory Principle:\n${statutoryDoc.highlight}\n\nFull Official Text:\n${statutoryDoc.content}\n\n---\nVerified by IP-SAKTI Sahayak Knowledge Repository`;
+        const encodedFilename = encodeURIComponent(safeBaseName);
+        return new NextResponse(fullContent, {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Content-Disposition": `inline; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
+          },
+        });
+      }
+
       const client = await clientPromise;
       const db = client.db("ip-sakti");
       const doc = await db.collection("documents").findOne({
-        $or: [{ name: safeName }, { originalName: safeName }, { name }, { name: name.trim() }],
+        $or: [
+          { name: decodedName },
+          { originalName: decodedName },
+          { name: safeBaseName },
+          { originalName: safeBaseName },
+          { name: rawName },
+        ],
       });
 
       if (doc?.fileBase64) {
         const fileBuffer = Buffer.from(doc.fileBase64, "base64");
-        const isPdf = (doc.name || safeName).toLowerCase().endsWith(".pdf");
+        const isPdf = (doc.name || safeBaseName).toLowerCase().endsWith(".pdf");
+        const encodedFilename = encodeURIComponent(safeBaseName);
         return new NextResponse(fileBuffer, {
           headers: {
             "Content-Type": isPdf ? "application/pdf" : "text/plain; charset=utf-8",
-            "Content-Disposition": `inline; filename="${safeName}"`,
+            "Content-Disposition": `inline; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
           },
         });
       }
 
       const possiblePaths = [
-        path.join(process.cwd(), "data", "documents", safeName),
-        path.join(os.tmpdir(), "ip-sakti-docs", safeName),
+        path.join(process.cwd(), "data", "documents", safeBaseName),
+        path.join(process.cwd(), "data", "documents", decodedName),
+        path.join(os.tmpdir(), "ip-sakti-docs", safeBaseName),
       ];
 
       for (const p of possiblePaths) {
         try {
           const fileBuffer = await fs.readFile(p);
-          const isPdf = safeName.toLowerCase().endsWith(".pdf");
+          const isPdf = safeBaseName.toLowerCase().endsWith(".pdf");
+          const encodedFilename = encodeURIComponent(safeBaseName);
           return new NextResponse(fileBuffer, {
             headers: {
               "Content-Type": isPdf ? "application/pdf" : "text/plain; charset=utf-8",
-              "Content-Disposition": `inline; filename="${safeName}"`,
+              "Content-Disposition": `inline; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
             },
           });
         } catch {
@@ -114,7 +167,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json(
         {
-          name: safeName,
+          name: decodedName,
           content: doc?.rawText || "Document verified in IP-SAKTI Knowledge Base.",
         },
         { status: 200 }

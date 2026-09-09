@@ -42,11 +42,12 @@ export function extractPDFText(buffer: Buffer): Promise<string> {
             }
           }
 
-          // 2. Parse from Pages array with safe decoding
+          // 2. Parse from Pages array with safe decoding and page tracking
           if (pdfData?.Pages && Array.isArray(pdfData.Pages)) {
             const extractedPages: string[] = [];
 
-            for (const page of pdfData.Pages) {
+            for (let pIdx = 0; pIdx < pdfData.Pages.length; pIdx++) {
+              const page = pdfData.Pages[pIdx];
               if (!page.Texts || !Array.isArray(page.Texts)) continue;
 
               const pageWords: string[] = [];
@@ -69,7 +70,7 @@ export function extractPDFText(buffer: Buffer): Promise<string> {
                 }
               }
               if (pageWords.length > 0) {
-                extractedPages.push(pageWords.join(" "));
+                extractedPages.push(`[Page ${pIdx + 1}]\n` + pageWords.join(" "));
               }
             }
 

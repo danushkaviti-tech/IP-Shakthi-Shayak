@@ -693,9 +693,10 @@ export default function UserDashboard() {
                 }
                 return next;
               });
-            } else if (parsed.event === "text") {
+            } else if (parsed.event === "token" || parsed.event === "text") {
               setIsWriting(true);
-              targetContent += parsed.data;
+              const tokenChunk = typeof parsed.data === "string" ? parsed.data : (parsed.data?.text || "");
+              targetContent += tokenChunk;
             } else if (parsed.event === "done") {
               streamTokens = {
                 latencyMs: parsed.data.latencyMs || 0,
@@ -818,13 +819,6 @@ export default function UserDashboard() {
 
   return (
     <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex font-sans selection:bg-zinc-800 selection:text-white overflow-hidden relative">
-      {/* CITATION VIEWER MODAL */}
-      <CitationViewerModal
-        citation={selectedCitation}
-        isOpen={citationModalOpen}
-        onClose={() => setCitationModalOpen(false)}
-        highlightKeyword={activeSearchQuery}
-      />
 
       {/* RLHF FEEDBACK TOAST */}
       {feedbackToast && (
