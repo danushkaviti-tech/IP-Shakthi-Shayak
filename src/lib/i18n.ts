@@ -69,6 +69,9 @@ export interface TranslationDict {
   chunkingAnalysisTitle: string;
   optimalStatus: string;
   chunksLabel: string;
+  youLabel?: string;
+  efficiencyScoreLabel?: string;
+  pieGraphLabel?: string;
 }
 
 export const translations: Record<string, TranslationDict> = {
@@ -1561,10 +1564,29 @@ export const translations: Record<string, TranslationDict> = {
   },
 };
 
-export function getTranslation(language: string): TranslationDict {
-  if (translations[language]) {
-    return translations[language];
-  }
+const EXTRA_LABELS: Record<string, { youLabel: string; efficiencyScoreLabel: string; pieGraphLabel: string }> = {
+  English: { youLabel: "You", efficiencyScoreLabel: "Score", pieGraphLabel: "Pie Graph" },
+  Telugu: { youLabel: "మీరు", efficiencyScoreLabel: "స్కోరు", pieGraphLabel: "పై గ్రాఫ్" },
+  Hindi: { youLabel: "आप", efficiencyScoreLabel: "स्कोर", pieGraphLabel: "पाई ग्राफ" },
+  Tamil: { youLabel: "நீங்கள்", efficiencyScoreLabel: "மதிப்பெண்", pieGraphLabel: "பை வரைபடம்" },
+  Kannada: { youLabel: "ನೀವು", efficiencyScoreLabel: "ಸ್ಕೋರ್", pieGraphLabel: "ಪೈ ಗ್ರಾಫ್" },
+  Sanskrit: { youLabel: "भवान्", efficiencyScoreLabel: "अङ्कः", pieGraphLabel: "वृत्तचित्रम्" },
+  Bengali: { youLabel: "আপনি", efficiencyScoreLabel: "স্কোর", pieGraphLabel: "পাই গ্রাফ" },
+  Marathi: { youLabel: "तुम्ही", efficiencyScoreLabel: "गुण", pieGraphLabel: "पाय आलेख" },
+  Gujarati: { youLabel: "તમે", efficiencyScoreLabel: "સ્કોર", pieGraphLabel: "પાઇ ગ્રાફ" },
+  Malayalam: { youLabel: "നിങ്ങൾ", efficiencyScoreLabel: "സ്കോർ", pieGraphLabel: "പൈ ഗ്രാഫ്" },
+  Spanish: { youLabel: "Usted", efficiencyScoreLabel: "Puntuación", pieGraphLabel: "Gráfico circular" },
+  French: { youLabel: "Vous", efficiencyScoreLabel: "Score", pieGraphLabel: "Graphique circulaire" },
+  German: { youLabel: "Sie", efficiencyScoreLabel: "Punktzahl", pieGraphLabel: "Kreisdiagramm" },
+};
 
-  return translations.English;
+export function getTranslation(language: string): TranslationDict {
+  const base = translations[language] || translations.English;
+  const extra = EXTRA_LABELS[language] || EXTRA_LABELS.English;
+  return {
+    ...base,
+    youLabel: base.youLabel || extra.youLabel,
+    efficiencyScoreLabel: base.efficiencyScoreLabel || extra.efficiencyScoreLabel,
+    pieGraphLabel: base.pieGraphLabel || extra.pieGraphLabel,
+  };
 }

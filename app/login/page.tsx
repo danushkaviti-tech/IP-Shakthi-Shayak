@@ -1,8 +1,9 @@
 "use client";
 
 import { signIn, signOut } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import LanguageSelector from "@/src/components/LanguageSelector";
 import { IconShield, IconSparkles } from "@/src/components/Icons";
 
 export default function LoginPage() {
@@ -11,6 +12,21 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [language, setLanguage] = useState("English");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ipsakti_language");
+      if (saved) setLanguage(saved);
+    }
+  }, []);
+
+  function handleLanguageChange(newLang: string) {
+    setLanguage(newLang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ipsakti_language", newLang);
+    }
+  }
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -57,7 +73,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex items-center justify-center p-4 font-sans selection:bg-zinc-800 selection:text-white">
+    <main className="min-h-screen bg-[#070709] text-[#f4f4f7] flex flex-col items-center justify-center p-4 font-sans selection:bg-zinc-800 selection:text-white relative">
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageSelector value={language} onChange={handleLanguageChange} />
+      </div>
+
       <div className="w-full max-w-md space-y-6">
         {/* LOGO */}
         <div className="text-center space-y-2">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import PWAInstallButton from "@/src/components/PWAInstallButton";
+import LanguageSelector from "@/src/components/LanguageSelector";
 import ChunkingAccuracyModal from "@/src/components/ChunkingAccuracyModal";
 import { ChunkEfficiencyMetrics } from "@/lib/rag/chunk";
 import {
@@ -52,6 +53,21 @@ export default function AdminAnalyticsPage() {
   const [usersList, setUsersList] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [language, setLanguage] = useState("English");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ipsakti_language");
+      if (saved) setLanguage(saved);
+    }
+  }, []);
+
+  function handleLanguageChange(newLang: string) {
+    setLanguage(newLang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ipsakti_language", newLang);
+    }
+  }
 
   // Ingestion form state
   const [uploading, setUploading] = useState(false);
@@ -443,6 +459,7 @@ export default function AdminAnalyticsPage() {
             </button>
           </div>
 
+          <LanguageSelector value={language} onChange={handleLanguageChange} />
           <PWAInstallButton />
 
           <Link

@@ -43,10 +43,10 @@ export default function LanguageSelector({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-[#141418] hover:bg-[#1a1a20] text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded-lg pl-6 sm:pl-8 pr-5 sm:pr-7 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-500 transition-all cursor-pointer appearance-none max-w-[95px] sm:max-w-none truncate"
+        className="bg-[#141418] hover:bg-[#1a1a20] text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded-lg pl-7 sm:pl-8 pr-6 sm:pr-8 py-1.5 text-[11px] sm:text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-500 transition-all cursor-pointer appearance-none min-w-[110px] sm:min-w-[140px] shadow-sm"
       >
         {SUPPORTED_LANGUAGES.map((lang) => (
-          <option key={lang.code} value={lang.code} className="bg-[#141418] text-zinc-100">
+          <option key={lang.code} value={lang.code} className="bg-[#141418] text-zinc-100 py-1">
             {lang.name} ({lang.native})
           </option>
         ))}

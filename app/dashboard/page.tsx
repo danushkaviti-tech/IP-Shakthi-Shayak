@@ -1296,11 +1296,11 @@ export default function UserDashboard() {
                   {msg.role === "user" && (
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
-                        You
+                        {t.youLabel || "You"}
                       </span>
                       <button
                         onClick={() => deleteMessage(index)}
-                        title="Delete query"
+                        title={t.deleteAction}
                         className="text-zinc-500 hover:text-rose-400 transition p-0.5 rounded"
                       >
                         <IconTrash className="w-3 h-3" />
@@ -1316,12 +1316,12 @@ export default function UserDashboard() {
                           key={fIdx}
                           onClick={() => openChunkMetricsModal(file)}
                           className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#111118] hover:bg-[#181824] border border-[#22222e] hover:border-zinc-600 text-[11px] text-zinc-300 font-mono transition cursor-pointer group shadow-sm"
-                          title="Click to view Chunking Accuracy Pie Chart & Breakdown"
+                          title={t.chunkingAnalysisTitle}
                         >
                           <IconFileText className="w-3.5 h-3.5 text-zinc-400 group-hover:text-emerald-400 transition" />
                           <span className="font-medium text-white">{file.name}</span>
                           <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                            🎯 {file.efficiencyScore || 96.5}% Score ({file.chunks || 1} chunks) • Pie Graph
+                            🎯 {file.efficiencyScore || 96.5}% {t.efficiencyScoreLabel || "Score"} ({file.chunks || 1} {t.chunksLabel}) • {t.pieGraphLabel || "Pie Graph"}
                           </span>
                           <span className="text-[10px] text-zinc-500">
                             ({Math.round(file.size / 1024)} KB)
@@ -1655,12 +1655,12 @@ export default function UserDashboard() {
                     <button
                       type="button"
                       onClick={() => openChunkMetricsModal(file)}
-                      title="Inspect Chunking Accuracy & Pie Graph Breakdown"
+                      title={t.chunkingAnalysisTitle}
                       className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/25 transition flex items-center gap-1 cursor-pointer"
                     >
                       <IconSparkles className="w-2.5 h-2.5 text-emerald-400" />
-                      <span>🎯 {file.efficiencyScore || 96.5}% Score ({file.chunks || 1} chunks)</span>
-                      <span className="text-[9px] text-cyan-400 underline decoration-dotted ml-0.5">Pie Graph</span>
+                      <span>🎯 {file.efficiencyScore || 96.5}% {t.efficiencyScoreLabel || "Score"} ({file.chunks || 1} {t.chunksLabel})</span>
+                      <span className="text-[9px] text-cyan-400 underline decoration-dotted ml-0.5">{t.pieGraphLabel || "Pie Graph"}</span>
                     </button>
                     <span className="text-[10px] text-zinc-500 font-mono">
                       ({Math.round(file.size / 1024)} KB)
