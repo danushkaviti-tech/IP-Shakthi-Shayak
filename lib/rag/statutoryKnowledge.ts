@@ -1292,8 +1292,9 @@ export function getLocalizedStatutoryKnowledge(language = "English", query = "")
     return { item, score };
   });
 
-  scored.sort((a, b) => b.score - a.score);
-  return scored.map((s) => s.item);
+  const matched = scored.filter((s) => s.score > 0);
+  matched.sort((a, b) => b.score - a.score);
+  return matched.map((s) => s.item);
 }
 
 export function getAllLocalizedStatutoryDocs(): Record<string, LocalizedKnowledgeItem> {

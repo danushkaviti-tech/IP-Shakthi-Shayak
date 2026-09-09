@@ -667,7 +667,7 @@ STRICT INSTRUCTIONS:
 5. Quote or highlight exact statements from the document to validate your answer.
 6. Provide a well-structured, clear, professional answer using bullet points or numbered sections in ${language}.
 `;
-    } else {
+    } else if (documents.length > 0) {
       prompt = `
 You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Intellectual Property laws, Patents Act 1970, Trademarks, Copyrights, Traditional Knowledge Digital Library (TKDL), and Comprehensive Legal Guidance.
 
@@ -690,6 +690,22 @@ GUIDELINES:
 1. Ground your answer thoroughly on the provided knowledge sources.
 2. Provide a well-structured, clear, comprehensive answer with bullet points or numbered sections.
 3. In-text citations: Cite sources as [Source 1], [Source 2], or with statutory act titles where relevant in ${language}.
+`;
+    } else {
+      prompt = `
+You are IP-SAKTI Sahayak, an advanced AI assistant created by Kaviti Danush for Intellectual Property, Patents, Trademarks, Copyrights, Legal Research, Document Analysis, and General assistance.
+
+Answer the user's question directly, accurately, helpfully, and comprehensively.
+
+${getLanguageDirective(language)}
+
+USER QUESTION:
+${question}
+
+GUIDELINES:
+1. Provide a direct, intelligent, accurate, and well-structured answer in ${language}.
+2. If asked about IP-SAKTI Sahayak, mention that it is an AI system developed by Kaviti Danush (Danush Kaviti).
+3. Do not invent or attach citations since no specific reference documents were uploaded or required for this query.
 `;
     }
   }
@@ -999,7 +1015,7 @@ STRICT INSTRUCTIONS:
 5. Quote or highlight exact statements from the document to validate your answer.
 6. Provide a well-structured, clear, professional answer using bullet points or numbered sections in ${language}.
 `;
-    } else {
+    } else if (documents.length > 0) {
       prompt = `
 You are IP-SAKTI Sahayak, an authoritative AI assistant specialized in Intellectual Property laws, Patents Act 1970, Trademarks, Copyrights, Traditional Knowledge Digital Library (TKDL), and Comprehensive Legal Guidance.
 
@@ -1024,6 +1040,23 @@ GUIDELINES:
 2. Provide a well-structured, clear, comprehensive answer with bullet points or numbered sections.
 3. In-text citations: Cite sources as [Source 1], [Source 2], or with statutory act titles where relevant in ${language}.
 4. If short-term previous messages exist, reference earlier discussion points to maintain conversational continuity.
+`;
+    } else {
+      prompt = `
+You are IP-SAKTI Sahayak, an advanced AI assistant created and developed by Kaviti Danush for Intellectual Property, Patents, Trademarks, Copyrights, Legal Research, Document Analysis, and General assistance.
+
+Answer the user's question directly, accurately, helpfully, and comprehensively.
+
+${langDirective}
+
+USER QUESTION:
+${question}
+
+${memoryBlock ? memoryBlock + "\n\n" : ""}
+GUIDELINES:
+1. Provide a direct, intelligent, accurate, and well-structured answer in ${language}.
+2. If asked about IP-SAKTI Sahayak or Kaviti Danush, state that Kaviti Danush is the AI developer, software engineer, and creator who architected and built the IP-SAKTI Sahayak platform to empower users with intellectual property intelligence, statutory compliance analysis, multi-lingual document RAG, and legal workflow automation.
+3. Do not invent or attach fake statutory acts, citation tags, or compliance boilerplate since no specific reference documents were uploaded or matched for this query.
 `;
     }
   }
