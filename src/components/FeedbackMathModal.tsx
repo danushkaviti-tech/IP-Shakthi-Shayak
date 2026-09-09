@@ -22,7 +22,7 @@ export default function FeedbackMathModal({
   metrics,
 }: FeedbackMathModalProps) {
   const [activeSubTab, setActiveSubTab] = useState<
-    "overview" | "formulas" | "languages" | "logs"
+    "overview" | "formulas" | "languages"
   >("overview");
 
   if (!isOpen || !metrics) return null;
@@ -96,17 +96,6 @@ export default function FeedbackMathModal({
           >
             <IconSparkles className="w-3.5 h-3.5" />
             <span>Language Stratification</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab("logs")}
-            className={`px-3 py-1.5 rounded-lg transition font-medium flex items-center gap-1.5 ${
-              activeSubTab === "logs"
-                ? "bg-white text-black font-semibold shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            }`}
-          >
-            <IconShield className="w-3.5 h-3.5" />
-            <span>Audit Feedback ({metrics.recentPolls?.length || 0})</span>
           </button>
         </div>
 
@@ -443,69 +432,6 @@ export default function FeedbackMathModal({
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
-
-          {/* TAB 4: RECENT AUDIT LOGS */}
-          {activeSubTab === "logs" && (
-            <div className="space-y-3">
-              {metrics.recentPolls?.length ? (
-                metrics.recentPolls.map((poll) => (
-                  <div
-                    key={poll.id}
-                    className="p-3.5 rounded-xl bg-[#08080c] border border-[#1b1b26] space-y-2 text-xs font-mono"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            poll.rating === "positive"
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25"
-                              : "bg-rose-500/10 text-rose-400 border border-rose-500/25"
-                          }`}
-                        >
-                          {poll.rating === "positive" ? "👍 GOOD POLL" : "👎 BAD POLL"}
-                        </span>
-                        <span className="text-zinc-400">{poll.language}</span>
-                      </div>
-                      <span className="text-[10px] text-zinc-500">
-                        {new Date(poll.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-
-                    <div className="text-white font-medium">
-                      Q: {poll.question}
-                    </div>
-
-                    <div className="text-zinc-400 text-[11px] bg-[#040406] p-2 rounded-lg border border-[#14141c]">
-                      A: {poll.answerSnippet}
-                    </div>
-
-                    {poll.tags?.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {poll.tags.map((t, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 rounded bg-[#14141c] text-zinc-300 text-[10px] border border-[#22222e]"
-                          >
-                            🏷️ {t}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {poll.comment && (
-                      <div className="text-zinc-300 text-[11px] italic">
-                        "{poll.comment}"
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="py-8 text-center text-xs text-zinc-500 font-mono">
-                  No feedback polls submitted yet.
-                </div>
-              )}
             </div>
           )}
         </div>

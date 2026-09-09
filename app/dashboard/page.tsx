@@ -945,16 +945,25 @@ export default function UserDashboard() {
             </button>
           </div>
 
-          <button
-            onClick={startNewChat}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#14141a] hover:bg-[#1a1a22] border border-[#22222c] hover:border-zinc-600 text-xs font-medium text-white transition shadow-sm group"
-          >
-            <span className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={startNewChat}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#14141a] hover:bg-[#1a1a22] border border-[#22222c] hover:border-zinc-600 text-xs font-medium text-white transition shadow-sm group"
+              title={t.newSession}
+            >
               <IconPlus className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-colors" />
               <span>{t.newSession}</span>
-            </span>
-            <span className="text-[10px] text-zinc-500 font-mono">{t.newSessionShortcut}</span>
-          </button>
+            </button>
+
+            <button
+              onClick={startNewChat}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#14141a] hover:bg-rose-950/30 border border-[#22222c] hover:border-rose-800/50 text-xs font-medium text-zinc-300 hover:text-rose-300 transition shadow-sm group"
+              title={t.clearChat}
+            >
+              <IconTrash className="w-3.5 h-3.5 text-zinc-400 group-hover:text-rose-400 transition-colors" />
+              <span>{t.clearChat}</span>
+            </button>
+          </div>
         </div>
 
         {/* SIDEBAR QUERY & SESSION HISTORY (ChatGPT-Style Multi-Turn Sessions) */}
