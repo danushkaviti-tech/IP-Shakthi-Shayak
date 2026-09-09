@@ -392,6 +392,22 @@ export default function UserDashboard() {
     }
   }
 
+  async function clearAllChatHistory() {
+    const confirmed = window.confirm(
+      language === "Telugu"
+        ? "మీరు ఖచ్చితంగా అన్ని సంప్రదింపుల చరిత్రను (Consultation History) క్లియర్ చేయాలనుకుంటున్నారా?"
+        : "Are you sure you want to clear all consultation chat history?"
+    );
+    if (!confirmed) return;
+    try {
+      setChatSessions([]);
+      startNewChat();
+      await fetch("/api/chats?all=true", { method: "DELETE" });
+    } catch (err) {
+      console.error("Failed to clear all chat history:", err);
+    }
+  }
+
   function getGroupedSessions() {
     const now = new Date().getTime();
     const oneDay = 24 * 60 * 60 * 1000;
@@ -973,9 +989,22 @@ export default function UserDashboard() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 font-mono">
                 {t.historyHeader}
               </p>
-              {sessionsLoading && (
-                <span className="text-[9px] text-zinc-500 font-mono animate-pulse">{t.syncing}</span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {sessionsLoading && (
+                  <span className="text-[9px] text-zinc-500 font-mono animate-pulse">{t.syncing}</span>
+                )}
+                {chatSessions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearAllChatHistory}
+                    className="text-[10px] text-zinc-400 hover:text-rose-400 transition flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-rose-950/30 border border-transparent hover:border-rose-900/40"
+                    title={t.clearChat}
+                  >
+                    <IconTrash className="w-2.5 h-2.5 text-zinc-400 group-hover:text-rose-400" />
+                    <span>{t.clearChat}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {chatSessions.length > 0 ? (
