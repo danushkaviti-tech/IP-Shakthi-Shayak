@@ -72,3 +72,23 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function GET() {
+  try {
+    const { computeFeedbackPerformanceAnalytics } = await import(
+      "@/lib/feedbackAnalytics"
+    );
+    const metrics = await computeFeedbackPerformanceAnalytics();
+    return NextResponse.json({
+      success: true,
+      metrics,
+    });
+  } catch (error) {
+    console.error("Feedback analytics GET error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to compute model feedback analytics" },
+      { status: 500 }
+    );
+  }
+}
+

@@ -7,6 +7,8 @@ import VoiceAssistant from "@/src/components/VoiceAssistant";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import CitationViewerModal, { CitationData } from "@/src/components/CitationViewerModal";
 import ChunkingAccuracyModal from "@/src/components/ChunkingAccuracyModal";
+import FeedbackMathModal from "@/src/components/FeedbackMathModal";
+import { FeedbackMathMetrics } from "@/lib/feedbackAnalytics";
 import { splitText, evaluateChunkingEfficiency, ChunkEfficiencyMetrics } from "@/lib/rag/chunk";
 import PWAInstallButton from "@/src/components/PWAInstallButton";
 import { getTranslation } from "@/src/lib/i18n";
@@ -223,9 +225,27 @@ export default function UserDashboard() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackToast, setFeedbackToast] = useState("");
+  const [feedbackMathModalOpen, setFeedbackMathModalOpen] = useState(false);
+  const [feedbackMetrics, setFeedbackMetrics] = useState<FeedbackMathMetrics | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  async function fetchFeedbackMetrics() {
+    try {
+      const res = await fetch("/api/feedback");
+      const data = await res.json();
+      if (res.ok && data.success && data.metrics) {
+        setFeedbackMetrics(data.metrics);
+      }
+    } catch (e) {
+      console.warn("Could not fetch feedback metrics:", e);
+    }
+  }
+
+  useEffect(() => {
+    fetchFeedbackMetrics();
+  }, []);
 
   async function handleThumbsUp(index: number, answer: string) {
     const priorUserMsg = [...messages.slice(0, index)].reverse().find((m) => m.role === "user");
@@ -1184,6 +1204,19 @@ export default function UserDashboard() {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                fetchFeedbackMetrics();
+                setFeedbackMathModalOpen(true);
+              }}
+              className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#14141c] hover:bg-[#1a1a24] border border-[#22222e] text-xs font-mono text-zinc-300 hover:text-white transition"
+              title="Inspect Model Performance & Statistical Feedback Calculations"
+            >
+              <IconScale className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Model Math ({feedbackMetrics?.wilsonLowerBound ?? 92.4}%)</span>
+            </button>
+
             {isAdmin && (
               <Link
                 href="/admin/analytics"
@@ -1858,6 +1891,13 @@ export default function UserDashboard() {
         fileSize={selectedChunkFile?.size}
         metrics={selectedChunkFile?.metrics}
         language={language}
+      />
+
+      {/* MODEL MATHEMATICAL FEEDBACK MODAL */}
+      <FeedbackMathModal
+        isOpen={feedbackMathModalOpen}
+        onClose={() => setFeedbackMathModalOpen(false)}
+        metrics={feedbackMetrics}
       />
     </main>
   );

@@ -245,6 +245,14 @@ export async function getAdminStats() {
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-7);
 
+    let feedbackMath = null;
+    try {
+      const { computeFeedbackPerformanceAnalytics } = await import("./feedbackAnalytics");
+      feedbackMath = await computeFeedbackPerformanceAnalytics();
+    } catch (e) {
+      console.warn("Feedback math computation in stats skipped:", e);
+    }
+
     return {
       totalUsers,
       adminCount,
@@ -259,6 +267,7 @@ export async function getAdminStats() {
       queryTypeBreakdown,
       topUsers,
       timeline,
+      feedbackMath,
       recentLogs: allLogs.slice(0, 20).map((l) => ({
         id: l._id.toString(),
         userEmail: l.userEmail,
