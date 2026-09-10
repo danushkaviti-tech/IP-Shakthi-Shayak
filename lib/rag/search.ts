@@ -40,7 +40,12 @@ export async function searchKnowledge(
   const queryTerms = cleanQuery
     .toLowerCase()
     .split(/\s+/)
-    .filter((w) => w.length >= 3 && !["who", "what", "is", "the", "and"].includes(w));
+    .filter((w) => {
+      const isStopWord = ["who", "what", "where", "when", "why", "how", "is", "the", "and", "for", "with", "this", "that", "are"].includes(w);
+      if (isStopWord) return false;
+      const hasNumber = /\d/.test(w);
+      return w.length >= 3 || hasNumber;
+    });
 
   // 1. Vector Search via ChromaDB
   const chromaPromise = (async () => {
