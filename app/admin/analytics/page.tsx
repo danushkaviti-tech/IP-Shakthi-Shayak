@@ -414,6 +414,25 @@ export default function AdminAnalyticsPage() {
     signOut({ callbackUrl: "/login" });
   }
 
+  const [clearingCache, setClearingCache] = useState(false);
+
+  async function clearRAGCache() {
+    const confirmed = window.confirm("Are you sure you want to clear the RAG, Redis, and MongoDB cache?");
+    if (!confirmed) return;
+    setClearingCache(true);
+    try {
+      const res = await fetch("/api/cache/clear", { method: "POST" });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to clear cache");
+      alert(`Cache cleared successfully!\nMemory: ${result.details?.memoryCleared}\nRedis: ${result.details?.redisCleared}\nMongo: ${result.details?.mongoCleared}`);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Error clearing cache");
+    } finally {
+      setClearingCache(false);
+    }
+  }
+
   const stats = data?.stats || {};
   const chroma = data?.chroma || {};
 
@@ -497,6 +516,15 @@ export default function AdminAnalyticsPage() {
           >
             <span>Open Chat</span>
           </Link>
+
+          <button
+            onClick={clearRAGCache}
+            disabled={clearingCache}
+            className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-medium text-rose-400 transition flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <IconRefresh className={`w-3.5 h-3.5 ${clearingCache ? "animate-spin" : ""}`} />
+            <span>{clearingCache ? "Clearing..." : "Clear Redis"}</span>
+          </button>
 
           <button
             onClick={handleLogout}

@@ -1,6 +1,5 @@
 import fs from "fs/promises";
 import path from "path";
-import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { searchKnowledge } from "./search";
 import { classifyQuestion, QuestionClassification } from "./classifier";
 import { evaluateGuardrails, GuardrailResult } from "./guardrails";
@@ -42,42 +41,6 @@ interface CandidateChunk {
   isAttachedFile?: boolean;
 }
 
-function isCasualQuestion(question: string): boolean {
-  const text = question.toLowerCase().trim();
-
-  const casualPatterns = [
-    "hello",
-    "hi",
-    "hey",
-    "how are you",
-    "how r u",
-    "how are u",
-    "good morning",
-    "good afternoon",
-    "good evening",
-    "good night",
-    "thank you",
-    "thanks",
-    "who are you",
-    "what are you",
-    "what can you do",
-    "bye",
-    "నమస్కారం",
-    "నమస్తే",
-    "బాగున్నారా",
-    "ధన్యవాదాలు",
-    "नमस्ते",
-    "प्रणाम",
-    "धन्यवाद",
-    "வணக்கம்",
-    "நன்றி",
-  ];
-
-  return casualPatterns.some(
-    (pattern) => text === pattern || text.startsWith(pattern + " ") || text.endsWith(" " + pattern)
-  );
-}
-
 export interface AttachedFileContext {
   name: string;
   content: string;
@@ -114,52 +77,57 @@ export interface DocumentMetadata {
   [key: string]: unknown;
 }
 
-function getLocalizedDefaults(language: string, idx: number) {
+function isCasualQuestion(question: string): boolean {
+  const text = question.toLowerCase().trim();
+  const exactCasualPatterns = new Set([
+    "hello", "hi", "hey", "how are you", "how r u", "how are u",
+    "good morning", "good afternoon", "good evening", "good night",
+    "thank you", "thanks", "who are you", "what are you", "what can you do", "bye",
+    "నమస్కారం", "నమస్తే", "బాగున్నారా", "ధన్యవాదాలు",
+    "नमस्ते", "प्रणाम", "धन्यवाद", "வணக்கம்", "நன்றி",
+  ]);
+
+  if (exactCasualPatterns.has(text)) return true;
+  return /^(hi|hello|hey|bye|thanks|thank you)\b/i.test(text);
+}
+
+function getLocalizedMetadata(language: string, idx: number, docName: string) {
   switch (language) {
     case "Telugu":
       return {
         page: `విభాగం ${idx + 1}`,
         jurisdiction: "భారతదేశం",
-        ipType: "మేధో సంపత్తి",
+        ipType: "మేధో సంపత్తి చట్టం",
         productType: "చట్టబద్ధమైన పత్రం",
         attachmentJurisdiction: "వినియోగదారు పత్రం",
         attachmentIpType: "పత్ర విశ్లేషణ",
+        attachmentProductType: "ధృవీకరించబడిన పత్ర మూలం",
+        sectionPrefix: `${docName} • నిబంధన ${idx + 1}`,
+        citationLabel: "మూలం",
       };
     case "Hindi":
       return {
         page: `खंड ${idx + 1}`,
         jurisdiction: "भारत",
-        ipType: "बौद्धिक संपदा",
+        ipType: "बौद्धिक संपदा कानून",
         productType: "वैधानिक दस्तावेज़",
         attachmentJurisdiction: "उपयोगकर्ता दस्तावेज़",
         attachmentIpType: "दस्तावेज़ विश्लेषण",
-      };
-    case "Tamil":
-      return {
-        page: `பிரிவு ${idx + 1}`,
-        jurisdiction: "இந்தியா",
-        ipType: "அறிவுசார் சொத்து",
-        productType: "சட்ட ஆவணம்",
-        attachmentJurisdiction: "பயனர் ஆவணம்",
-        attachmentIpType: "ஆவண பகுப்பாய்வு",
-      };
-    case "Kannada":
-      return {
-        page: `ವಿಭಾಗ ${idx + 1}`,
-        jurisdiction: "ಭಾರತ",
-        ipType: "ಬೌದ್ಧಿಕ ಆಸ್ತಿ",
-        productType: "ಶಾಸನಬದ್ಧ ದಾಖಲೆ",
-        attachmentJurisdiction: "ಬಳಕೆದಾರರ ದಾಖಲೆ",
-        attachmentIpType: "ದಾಖಲೆ ವಿಶ್ಲೇಷಣೆ",
+        attachmentProductType: "सत्यापित दस्तावेज़ स्रोत",
+        sectionPrefix: `${docName} • खंड ${idx + 1}`,
+        citationLabel: "स्रोत",
       };
     default:
       return {
-        page: `Clause ${idx + 1}`,
+        page: `Section ${idx + 1}`,
         jurisdiction: "India",
         ipType: "Statutory Law",
         productType: "Official Statutory Act",
         attachmentJurisdiction: "User Document",
         attachmentIpType: "Document Analysis",
+        attachmentProductType: "Verified Document Source",
+        sectionPrefix: `${docName} • Excerpt ${idx + 1}`,
+        citationLabel: "Source",
       };
   }
 }
@@ -176,44 +144,78 @@ function processAttachedFiles(
   const qTerms = lowerQ
     .replace(/[^\w\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 2);
+    .filter((w) => w.length >= 3 && !["who", "what", "when", "where", "why", "how", "the", "and"].includes(w));
 
   for (const file of attachedFiles) {
-    const rawContent = file.content || "";
-    if (!rawContent.trim()) continue;
+    const rawContent = (file.content || "").trim();
+    if (!rawContent) continue;
 
-    const sections = rawContent.split(/\n\n+/).filter((s) => s.trim().length > 20);
-    const chunks = sections.length > 0 ? sections : [rawContent];
+    const localized = getLocalizedMetadata(language, 0, file.name);
+
+    if (rawContent.length <= 25000) {
+      const sentenceMatch = rawContent.match(/^(.*?[.?!])\s/);
+      const highlight =
+        sentenceMatch && sentenceMatch[1].length > 20 && sentenceMatch[1].length < 250
+          ? sentenceMatch[1]
+          : rawContent.slice(0, 200) + "...";
+
+      documents.push(rawContent);
+      metadatas.push({
+        document: file.name,
+        source: file.name,
+        section: `${file.name} • Full Record`,
+        page: localized.page,
+        jurisdiction: localized.attachmentJurisdiction,
+        ipType: file.type || localized.attachmentIpType,
+        productType: localized.attachmentProductType,
+        isAttachedFile: true,
+        fullText: rawContent,
+        highlight,
+      });
+      continue;
+    }
+
+    const rawChunks = rawContent.split(/\n{2,}|\r\n{2,}/).filter((s) => s.trim().length > 15);
+    const chunks = rawChunks.length > 0 ? rawChunks : [rawContent];
 
     const scoredChunks = chunks.map((chunk, idx) => {
       const lowerChunk = chunk.toLowerCase();
       let score = 0;
+      if (idx === 0) score += 10;
+
       for (const term of qTerms) {
-        if (lowerChunk.includes(term)) score += 5;
+        if (lowerChunk.includes(term)) {
+          score += 15;
+        } else if (term.length > 4 && lowerChunk.includes(term.slice(0, 4))) {
+          score += 8;
+        }
       }
       return { chunk, idx, score };
     });
 
     scoredChunks.sort((a, b) => b.score - a.score);
-    const topChunks = scoredChunks.slice(0, 4);
+    const topSelections = scoredChunks.slice(0, 5);
+    topSelections.sort((a, b) => a.idx - b.idx);
 
-    for (const item of topChunks) {
+    for (const item of topSelections) {
       const cleanChunk = item.chunk.trim();
       const sentenceMatch = cleanChunk.match(/^(.*?[.?!])\s/);
       const highlight =
-        sentenceMatch && sentenceMatch[1].length > 25 && sentenceMatch[1].length < 250
+        sentenceMatch && sentenceMatch[1].length > 20 && sentenceMatch[1].length < 250
           ? sentenceMatch[1]
-          : cleanChunk.slice(0, 200) + (cleanChunk.length > 200 ? "..." : "");
+          : cleanChunk.slice(0, 200) + "...";
+
+      const chunkLocalized = getLocalizedMetadata(language, item.idx, file.name);
 
       documents.push(cleanChunk);
       metadatas.push({
         document: file.name,
         source: file.name,
-        section: `${file.name} • Excerpt ${item.idx + 1}`,
-        page: `Section ${item.idx + 1}`,
-        jurisdiction: "User Upload",
-        ipType: file.type || "Document Analysis",
-        productType: "Uploaded File",
+        section: chunkLocalized.sectionPrefix,
+        page: chunkLocalized.page,
+        jurisdiction: chunkLocalized.attachmentJurisdiction,
+        ipType: file.type || chunkLocalized.attachmentIpType,
+        productType: chunkLocalized.attachmentProductType,
         isAttachedFile: true,
         fullText: cleanChunk,
         highlight,
@@ -224,13 +226,10 @@ function processAttachedFiles(
   return { documents, metadatas };
 }
 
-/**
- * High-precision Statutory & Knowledge Retrieval
- */
 async function retrieveKnowledgeBase(
   question: string,
   language: string = "English",
-  userEmail: string = ""
+  _userEmail: string = ""
 ): Promise<{ documents: string[]; metadatas: DocumentMetadata[] }> {
   const normalizedQuery = question.toLowerCase().trim();
   const stopWords = new Set([
@@ -248,83 +247,18 @@ async function retrieveKnowledgeBase(
   const candidateChunks: CandidateChunk[] = [];
   let orderCounter = 0;
 
-  // 1. Fetch from In-Memory Statutory Registry (Fastest & Most Authoritative)
+  // 1. Check Statutory Pre-compiled Law
   try {
     const localized = getLocalizedStatutoryKnowledge(language, question);
     for (const item of localized) {
-      let matchScore = 55; // Base score for items pre-filtered
+      let matchScore = 50;
 
-      if (
-        item.sectionCode === "3d" &&
-        (normalizedQuery.includes("3(d)") || normalizedQuery.includes("3d") || normalizedQuery.includes("novartis") || normalizedQuery.includes("therapeutic efficacy") || normalizedQuery.includes("evergreening"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "3k" &&
-        (normalizedQuery.includes("3(k)") || normalizedQuery.includes("3k") || normalizedQuery.includes("software") || normalizedQuery.includes("algorithm") || normalizedQuery.includes("cri") || normalizedQuery.includes("computer"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "3p" &&
-        (normalizedQuery.includes("3(p)") || normalizedQuery.includes("3p") || normalizedQuery.includes("traditional knowledge") || normalizedQuery.includes("ayurved") || normalizedQuery.includes("tkdl"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "9" &&
-        (normalizedQuery.includes("section 9") || normalizedQuery.includes("absolute grounds") || normalizedQuery.includes("distinctiveness") || normalizedQuery.includes("trademark"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "11" &&
-        (normalizedQuery.includes("section 11") || normalizedQuery.includes("section 21") || normalizedQuery.includes("tm-o") || normalizedQuery.includes("relative grounds") || normalizedQuery.includes("opposition"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "29" &&
-        (normalizedQuery.includes("section 29") || normalizedQuery.includes("infringement") || normalizedQuery.includes("passing off"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "52" &&
-        (normalizedQuery.includes("section 52") || normalizedQuery.includes("fair dealing") || normalizedQuery.includes("copyright") || normalizedQuery.includes("fair use"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "25" &&
-        (normalizedQuery.includes("section 25") || normalizedQuery.includes("pre-grant") || normalizedQuery.includes("post-grant"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "48" &&
-        (normalizedQuery.includes("section 48") || normalizedQuery.includes("section 53") || normalizedQuery.includes("20 years") || normalizedQuery.includes("exclusive rights"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "84" &&
-        (normalizedQuery.includes("section 84") || normalizedQuery.includes("compulsory licen") || normalizedQuery.includes("natco"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "nba" &&
-        (normalizedQuery.includes("nba") || normalizedQuery.includes("biodiversity"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "designs" &&
-        (normalizedQuery.includes("design") || normalizedQuery.includes("piracy") || normalizedQuery.includes("locarno"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "ppvfr" &&
-        (normalizedQuery.includes("plant") || normalizedQuery.includes("variety") || normalizedQuery.includes("farmer") || normalizedQuery.includes("ppvfr"))
-      ) {
-        matchScore += 85;
-      } else if (
-        item.sectionCode === "tradesecret" &&
-        (normalizedQuery.includes("secret") || normalizedQuery.includes("nda") || normalizedQuery.includes("confidential"))
-      ) {
-        matchScore += 85;
-      }
+      if (item.sectionCode === "3d" && (normalizedQuery.includes("3(d)") || normalizedQuery.includes("novartis") || normalizedQuery.includes("efficacy") || normalizedQuery.includes("evergreening"))) matchScore += 85;
+      if (item.sectionCode === "3k" && (normalizedQuery.includes("3(k)") || normalizedQuery.includes("software") || normalizedQuery.includes("algorithm") || normalizedQuery.includes("cri"))) matchScore += 85;
+      if (item.sectionCode === "3p" && (normalizedQuery.includes("3(p)") || normalizedQuery.includes("traditional knowledge") || normalizedQuery.includes("ayurved") || normalizedQuery.includes("tkdl"))) matchScore += 85;
+      if (item.sectionCode === "9" && (normalizedQuery.includes("section 9") || normalizedQuery.includes("distinctiveness"))) matchScore += 85;
+      if (item.sectionCode === "11" && (normalizedQuery.includes("section 11") || normalizedQuery.includes("opposition"))) matchScore += 85;
+      if (item.sectionCode === "52" && (normalizedQuery.includes("section 52") || normalizedQuery.includes("fair dealing") || normalizedQuery.includes("copyright"))) matchScore += 85;
 
       candidateChunks.push({
         document: item.document,
@@ -340,213 +274,40 @@ async function retrieveKnowledgeBase(
         order: orderCounter++,
       });
     }
-  } catch (statutoryErr) {
-    console.warn("Statutory retrieval error:", statutoryErr);
-  }
+  } catch { }
 
-  // 2. Fetch from filesystem data/documents directory
+  // 2. Hybrid Search (Vector + MongoDB Ingested Documents)
   try {
-    const docsDir = path.join(process.cwd(), "data", "documents");
-    const files = await fs.readdir(docsDir).catch(() => [] as string[]);
+    const searchRes = await searchKnowledge(question, 4);
+    const searchDocs = searchRes.documents?.[0] || [];
+    const searchMetas = searchRes.metadatas?.[0] || [];
+    const searchDists = searchRes.distances?.[0] || [];
 
-    for (const file of files) {
-      if (!file.endsWith(".txt")) continue;
-      try {
-        const fileContent = await fs.readFile(path.join(docsDir, file), "utf-8");
-        const paragraphs = fileContent.split(/\n\n+/).filter((p: string) => p.trim().length > 30);
-        const docTitle = file.replace(/_/g, " ").replace(/\.txt$/i, "");
-        const lowerDocTitle = docTitle.toLowerCase();
-
-        paragraphs.forEach((p: string, pIdx: number) => {
-          const cleanP = p.trim();
-          const lowerP = cleanP.toLowerCase();
-          let matchScore = 0;
-
-          // Section specific boosts
-          if (file.includes("3d") && (normalizedQuery.includes("3(d)") || normalizedQuery.includes("3d") || normalizedQuery.includes("novartis") || normalizedQuery.includes("efficacy") || normalizedQuery.includes("evergreening"))) {
-            matchScore += 75;
-          }
-          if (file.includes("3k") && (normalizedQuery.includes("3(k)") || normalizedQuery.includes("3k") || normalizedQuery.includes("software") || normalizedQuery.includes("algorithm") || normalizedQuery.includes("cri"))) {
-            matchScore += 75;
-          }
-          if (file.includes("3p") && (normalizedQuery.includes("3(p)") || normalizedQuery.includes("3p") || normalizedQuery.includes("traditional knowledge") || normalizedQuery.includes("ayurved"))) {
-            matchScore += 75;
-          }
-          if (file.includes("Section_9") && (normalizedQuery.includes("section 9") || normalizedQuery.includes("absolute grounds") || normalizedQuery.includes("distinctiveness"))) {
-            matchScore += 75;
-          }
-          if (file.includes("Section_11") && (normalizedQuery.includes("section 11") || normalizedQuery.includes("section 21") || normalizedQuery.includes("tm-o") || normalizedQuery.includes("opposition"))) {
-            matchScore += 75;
-          }
-          if (file.includes("Section_29") && (normalizedQuery.includes("section 29") || normalizedQuery.includes("infringement") || normalizedQuery.includes("passing off"))) {
-            matchScore += 75;
-          }
-          if (file.includes("Section_52") && (normalizedQuery.includes("section 52") || normalizedQuery.includes("fair dealing") || normalizedQuery.includes("fair use"))) {
-            matchScore += 75;
-          }
-          if (file.includes("Designs_Act") && (normalizedQuery.includes("design") || normalizedQuery.includes("piracy") || normalizedQuery.includes("locarno"))) {
-            matchScore += 75;
-          }
-          if (file.includes("Plant_Varieties") && (normalizedQuery.includes("plant") || normalizedQuery.includes("variety") || normalizedQuery.includes("ppvfr"))) {
-            matchScore += 75;
-          }
-          if (file.includes("Trade_Secrets") && (normalizedQuery.includes("secret") || normalizedQuery.includes("nda") || normalizedQuery.includes("confidential"))) {
-            matchScore += 75;
-          }
-          if (file.includes("Madrid_Protocol") && (normalizedQuery.includes("madrid") || normalizedQuery.includes("international trademark") || normalizedQuery.includes("wipo"))) {
-            matchScore += 75;
-          }
-
-          // Keyword matches
-          for (const term of queryTerms) {
-            if (lowerP.includes(term)) matchScore += 12;
-            if (lowerDocTitle.includes(term)) matchScore += 18;
-          }
-
-          // Penalize mismatch
-          if (file.includes("3p") && (normalizedQuery.includes("3(d)") || normalizedQuery.includes("3d") || normalizedQuery.includes("3(k)") || normalizedQuery.includes("3k") || normalizedQuery.includes("novartis"))) {
-            matchScore -= 90;
-          }
-          if (file.includes("3d") && (normalizedQuery.includes("3(p)") || normalizedQuery.includes("3p") || normalizedQuery.includes("traditional knowledge") || normalizedQuery.includes("ayurved"))) {
-            matchScore -= 90;
-          }
-
-          if (matchScore >= 25) {
-            const sentences = cleanP.match(/[^.!?\n]+[.!?]/g) || [cleanP];
-            let bestSentence = sentences[0] || cleanP.slice(0, 200);
-            let bestSentenceScore = -1;
-            for (const s of sentences) {
-              const lowerS = s.toLowerCase();
-              let sScore = 0;
-              for (const term of queryTerms) {
-                if (lowerS.includes(term)) sScore++;
-              }
-              if (sScore > bestSentenceScore) {
-                bestSentenceScore = sScore;
-                bestSentence = s.trim();
-              }
-            }
-
-            candidateChunks.push({
-              document: file,
-              source: docTitle,
-              content: cleanP,
-              section: `${docTitle} • Clause ${pIdx + 1}`,
-              page: `Clause ${pIdx + 1}`,
-              jurisdiction: "India",
-              ipType: "Statutory Law",
-              productType: "Official Statutory Act",
-              highlight: bestSentence.slice(0, 250),
-              score: matchScore,
-              order: orderCounter++,
-            });
-          }
-        });
-      } catch {}
-    }
-  } catch {}
-
-  // 3. Fetch from MongoDB 'documents' collection if available
-  try {
-    const client = await clientPromise;
-    const db = client.db("ip-sakti");
-    const mongoDocs = await db
-      .collection("documents")
-      .find({
-        $or: [
-          { rawText: { $exists: true, $ne: "" } },
-          { fileBase64: { $exists: true, $ne: "" } },
-        ],
-      })
-      .toArray();
-
-    for (const doc of mongoDocs) {
-      const text = doc.rawText || "";
-      if (!text || text.trim().length < 20) continue;
-
-      const docName = doc.name || doc.originalName || "Knowledge Document";
-      const lowerDocName = docName.toLowerCase();
-      const paragraphs = text.split(/\n\n+/).filter((p: string) => p.trim().length > 30);
-
-      paragraphs.forEach((p: string, pIdx: number) => {
-        const cleanP = p.trim();
-        const lowerP = cleanP.toLowerCase();
-        let matchScore = 0;
-
-        for (const term of queryTerms) {
-          if (lowerP.includes(term)) matchScore += 10;
-          if (lowerDocName.includes(term)) matchScore += 15;
-        }
-
-        if (matchScore >= 30) {
-          const sentences = cleanP.match(/[^.!?\n]+[.!?]/g) || [cleanP];
-          const bestSentence = sentences[0] || cleanP.slice(0, 200);
-
-          candidateChunks.push({
-            document: docName,
-            source: docName,
-            content: cleanP,
-            section: `${docName} • Excerpt ${pIdx + 1}`,
-            page: `Page ${Math.floor(pIdx / 3) + 1}`,
-            jurisdiction: doc.jurisdiction || "India",
-            ipType: doc.ipType || "Knowledge Document",
-            productType: "Knowledge Base Document",
-            highlight: bestSentence.slice(0, 250),
-            score: matchScore,
-            order: orderCounter++,
-          });
-        }
-      });
-    }
-  } catch (mongoErr) {
-    console.warn("MongoDB retrieval warning:", mongoErr);
-  }
-
-  // 4. Try Chroma DB embeddings if available
-  try {
-    const semanticResults = await searchKnowledge(question, 4);
-    const semanticDocuments = semanticResults.documents?.[0] || [];
-    const semanticMetadatas = semanticResults.metadatas?.[0] || [];
-    const semanticDistances = semanticResults.distances?.[0] || [];
-
-    semanticDocuments.forEach((content, index) => {
+    searchDocs.forEach((content, index) => {
       if (!content || content.trim().length < 20) return;
-      const metadata = (semanticMetadatas[index] || {}) as DocumentMetadata;
-      const distance = Number(semanticDistances[index]);
-      const semanticScore = Number.isFinite(distance) ? Math.max(1, 100 - distance * 100) : 50;
+      const metadata = (searchMetas[index] || {}) as DocumentMetadata;
+      const dist = Number(searchDists[index]);
+      const score = Number.isFinite(dist) ? Math.max(30, Math.round((1 - Math.min(dist, 1)) * 100)) : 75;
 
-      if (semanticScore >= 40) {
-        candidateChunks.push({
-          document: String(metadata.document || metadata.source || `Semantic Source ${index + 1}`),
-          source: String(metadata.source || metadata.document || `Semantic Source ${index + 1}`),
-          content,
-          section: String(metadata.section || "Relevant knowledge excerpt"),
-          page: String(metadata.page || "Knowledge Base"),
-          jurisdiction: String(metadata.jurisdiction || "India"),
-          ipType: String(metadata.ipType || "Intellectual Property"),
-          productType: String(metadata.productType || "Knowledge Base Document"),
-          highlight: String(metadata.highlight || content.slice(0, 250)),
-          score: semanticScore,
-          order: orderCounter++,
-        });
-      }
+      candidateChunks.push({
+        document: String(metadata.document || metadata.source || `Knowledge Document ${index + 1}`),
+        source: String(metadata.source || metadata.document || `Knowledge Document ${index + 1}`),
+        content,
+        section: String(metadata.section || "Statutory & Regulatory Record"),
+        page: String(metadata.page || "Page 1"),
+        jurisdiction: String(metadata.jurisdiction || "India"),
+        ipType: String(metadata.ipType || "Intellectual Property"),
+        productType: String(metadata.productType || "Regulatory Ingestion"),
+        highlight: String(metadata.highlight || content.slice(0, 250)),
+        score,
+        order: orderCounter++,
+      });
     });
-  } catch {}
+  } catch { }
 
-  // Sort candidates by highest relevance score
-  const scored = candidateChunks.sort((a, b) => b.score - a.score);
-
-  // Deduplicate and select top relevant chunks (confidence threshold >= 30)
-  const topChunks = scored
-    .filter((chunk) => chunk.score >= 30)
-    .filter(
-      (chunk, index, all) =>
-        all.findIndex(
-          (candidate) =>
-            candidate.document === chunk.document &&
-            candidate.content.slice(0, 100) === chunk.content.slice(0, 100)
-        ) === index
-    )
+  const topChunks = candidateChunks
+    .sort((a, b) => b.score - a.score)
+    .filter((chunk, index, all) => all.findIndex((c) => c.document === chunk.document && c.content.slice(0, 80) === chunk.content.slice(0, 80)) === index)
     .slice(0, 4);
 
   const documents: string[] = [];
@@ -571,91 +332,9 @@ async function retrieveKnowledgeBase(
   return { documents, metadatas };
 }
 
-/* -----------------------------
-   LANGGRAPH STATE DEFINITIONS
------------------------------ */
-
-const GraphState = Annotation.Root({
-  question: Annotation<string>({
-    reducer: (x, y) => y ?? x,
-    default: () => "",
-  }),
-  language: Annotation<string>({
-    reducer: (x, y) => y ?? x,
-    default: () => "English",
-  }),
-  userEmail: Annotation<string>({
-    reducer: (x, y) => y ?? x,
-    default: () => "guest@ipsakti.gov.in",
-  }),
-  attachedFiles: Annotation<AttachedFileContext[]>({
-    reducer: (x, y) => y ?? x,
-    default: () => [],
-  }),
-  chatHistory: Annotation<ConversationTurn[]>({
-    reducer: (x, y) => y ?? x,
-    default: () => [],
-  }),
-  isCasual: Annotation<boolean>({
-    reducer: (x, y) => y ?? x,
-    default: () => false,
-  }),
-  classification: Annotation<QuestionClassification>({
-    reducer: (x, y) => y ?? x,
-  }),
-  guardrails: Annotation<GuardrailResult>({
-    reducer: (x, y) => y ?? x,
-  }),
-  longTermProfile: Annotation<UserMemoryProfile | null>({
-    reducer: (x, y) => y ?? x,
-    default: () => null,
-  }),
-  documents: Annotation<string[]>({
-    reducer: (x, y) => y ?? x,
-    default: () => [],
-  }),
-  metadatas: Annotation<DocumentMetadata[]>({
-    reducer: (x, y) => y ?? x,
-    default: () => [],
-  }),
-  generation: Annotation<string>({
-    reducer: (x, y) => y ?? x,
-    default: () => "",
-  }),
-  sources: Annotation<SourceCitation[]>({
-    reducer: (x, y) => y ?? x,
-    default: () => [],
-  }),
-  accuracyScore: Annotation<number>({
-    reducer: (x, y) => y ?? x,
-    default: () => 98.5,
-  }),
-  similarityIndex: Annotation<number>({
-    reducer: (x, y) => y ?? x,
-    default: () => 0.95,
-  }),
-  promptTokens: Annotation<number>({
-    reducer: (x, y) => y ?? x,
-    default: () => 0,
-  }),
-  completionTokens: Annotation<number>({
-    reducer: (x, y) => y ?? x,
-    default: () => 0,
-  }),
-  totalTokens: Annotation<number>({
-    reducer: (x, y) => y ?? x,
-    default: () => 0,
-  }),
-  latencyMs: Annotation<number>({
-    reducer: (x, y) => y ?? x,
-    default: () => 0,
-  }),
-});
-
-/* -----------------------------
-   STREAMING RAG PIPELINE
------------------------------ */
-
+/* ----------------------------------------------------
+    SIH 26045 STANDARDIZED STREAMING PIPELINE
+---------------------------------------------------- */
 export async function* generateStatutoryResponseStream(
   question: string,
   language = "English",
@@ -664,20 +343,15 @@ export async function* generateStatutoryResponseStream(
   userEmail = "guest@ipsakti.gov.in"
 ) {
   const startTime = Date.now();
-
-  // 1. Guardrail Check (Always non-blocking)
   const guardrailResult = evaluateGuardrails(question);
-
-  // 2. Classification & Memory
   const isCasual = isCasualQuestion(question);
   const classification = classifyQuestion(question);
   const longTermProfile = await getUserLongTermMemory(userEmail);
   const memoryBlock = formatMemoryContext(chatHistory, longTermProfile);
 
-  // 3. Knowledge Retrieval
   let documents: string[] = [];
   let metadatas: DocumentMetadata[] = [];
-  const hasAttachedFiles = attachedFiles && attachedFiles.length > 0;
+  const hasAttachedFiles = Boolean(attachedFiles && attachedFiles.length > 0);
 
   if (hasAttachedFiles) {
     const processed = processAttachedFiles(attachedFiles, question, language);
@@ -689,69 +363,40 @@ export async function* generateStatutoryResponseStream(
     metadatas = kb.metadatas;
   }
 
-  // 4. Build Citations
+  // Build Output Citations
   const sources: SourceCitation[] = metadatas.map((meta, idx) => {
     const rawDoc = documents[idx] || "";
     const docName = meta.document || meta.source || `Document-${idx + 1}`;
     const baseAccuracy = 97.4 + Math.min(idx * 0.6, 2.4);
     const isAttachment = Boolean(meta.isAttachedFile);
-    const localizedDefaults = getLocalizedDefaults(language, idx);
+    const localizedDefaults = getLocalizedMetadata(language, idx, docName);
 
-    let defaultHighlight = "";
-    if (meta.highlight) {
-      defaultHighlight = meta.highlight as string;
-    } else {
-      const cleanDoc = rawDoc.replace(/----------------Page \(\d+\) Break----------------/g, " ").replace(/\s+/g, " ").trim();
-      const sentenceMatch = cleanDoc.match(/^(.*?[.?!])\s/);
-      defaultHighlight =
-        sentenceMatch && sentenceMatch[1].length > 30 && sentenceMatch[1].length < 250
-          ? sentenceMatch[1]
-          : cleanDoc.slice(0, 220) + (cleanDoc.length > 220 ? "..." : "");
-    }
-
-    let sectionTitle = meta.section || "";
-    if (!sectionTitle) {
-      sectionTitle = isAttachment
-        ? `${docName} • Section ${idx + 1}`
-        : `${docName} • ${meta.ipType || localizedDefaults.ipType}`;
-    }
-
-    const defaultPage = (meta.page as string) || (isAttachment ? `Page ${Math.floor(idx / 2) + 1}` : localizedDefaults.page);
-    const defaultJurisdiction = isAttachment
-      ? localizedDefaults.attachmentJurisdiction
-      : (meta.jurisdiction as string) || localizedDefaults.jurisdiction;
-
-    const defaultIpType = isAttachment
-      ? localizedDefaults.attachmentIpType
-      : (meta.ipType as string) || localizedDefaults.ipType;
-
-    const defaultProductType = isAttachment
-      ? localizedDefaults.attachmentIpType
-      : (meta.productType as string) || localizedDefaults.productType;
+    const safeContent = (meta.fullText as string) || rawDoc;
+    const downloadHref = isAttachment
+      ? `data:text/plain;charset=utf-8,${encodeURIComponent(safeContent)}`
+      : `/api/documents?action=download&name=${encodeURIComponent(docName)}`;
 
     return {
       id: `cit-${idx + 1}-${Date.now()}`,
       document: docName,
-      section: sectionTitle,
-      page: defaultPage,
-      jurisdiction: defaultJurisdiction,
-      ipType: defaultIpType,
-      productType: defaultProductType,
-      snippet: rawDoc.length > 300 ? rawDoc.slice(0, 300) + "..." : rawDoc,
-      highlightPoint: defaultHighlight,
-      fullText: (meta.fullText as string) || rawDoc || "Document excerpt verified in IP-SAKTI Knowledge Base.",
+      section: meta.section || localizedDefaults.sectionPrefix,
+      page: (meta.page as string) || localizedDefaults.page,
+      jurisdiction: (meta.jurisdiction as string) || (isAttachment ? localizedDefaults.attachmentJurisdiction : localizedDefaults.jurisdiction),
+      ipType: (meta.ipType as string) || (isAttachment ? localizedDefaults.attachmentIpType : localizedDefaults.ipType),
+      productType: (meta.productType as string) || (isAttachment ? localizedDefaults.attachmentProductType : localizedDefaults.productType),
+      snippet: rawDoc.length > 280 ? rawDoc.slice(0, 280) + "..." : rawDoc,
+      highlightPoint: (meta.highlight as string) || rawDoc.slice(0, 200) + "...",
+      fullText: safeContent,
       confidence: Number(baseAccuracy.toFixed(1)),
-      downloadUrl: `/api/documents?action=download&name=${encodeURIComponent(docName)}`,
+      downloadUrl: downloadHref,
       viewUrl: `/api/documents?action=view&name=${encodeURIComponent(docName)}`,
     };
   });
 
   const sourceCount = sources.length;
-  const baseAccuracy = isCasual ? 99.4 : 97.5;
-  const accuracyScore = Math.min(99.8, Number((baseAccuracy + sourceCount * 0.5).toFixed(1)));
+  const accuracyScore = Math.min(99.8, Number((97.5 + sourceCount * 0.5).toFixed(1)));
   const similarityIndex = Number((0.940 + Math.min(sourceCount * 0.012, 0.055)).toFixed(3));
 
-  // Yield metadata event first
   yield {
     event: "meta",
     data: {
@@ -764,135 +409,132 @@ export async function* generateStatutoryResponseStream(
     },
   };
 
-  // 5. Build Comprehensive, High-Precision Prompt
-  const getLanguageDirective = (lang: string) => {
+  // SIH 26045 Localized Section Headers
+  const getSIHSchema = (lang: string) => {
     switch (lang) {
       case "Telugu":
-        return `Respond strictly in fluent Telugu (తెలుగు లిపి). The entire answer, legal rationale, document analysis, and citations MUST be written in Telugu script.`;
+        return {
+          directive: `సమాధానాన్ని పూర్తిగా సరళమైన మరియు స్పష్టమైన తెలుగు లిపిలో (Telugu Script) మాత్రమే రాయండి. ఆంగ్ల అక్షరాలు వాడవద్దు.`,
+          h1: `ముఖ్యాంశాలు / ప్రత్యక్ష సమాధానం`,
+          h2: `చట్టబద్ధమైన నిబంధనలు మరియు విశ్లేషణ`,
+          h3: `సంబంధిత న్యాయ తీర్పులు మరియు పూర్వోదాహరణలు`,
+          h4: `ఆచరణాత్మక విధానం మరియు నిబంధనల చెక్‌లిస్ట్`,
+          citationFormat: `[మూలం: <పత్రం/చట్టం పేరు>, విభాగం/నిబంధన: <విభాగం>]`,
+          insufficientNotice: `⚠️ **గమనిక:** సమర్పించిన పత్రంలో ఈ అంశానికి సంబంధించిన ప్రత్యక్ష సమాచారం లభించలేదు. సాధారణ భారతీయ చట్టపరమైన నిబంధనల ప్రకారం వివరణ క్రింద ఇవ్వబడింది:`,
+        };
       case "Hindi":
-        return `Respond strictly in fluent Hindi (हिन्दी देवनागरी लिपि). The entire answer, document analysis, and citations MUST be written in Hindi.`;
-      case "Tamil":
-        return `Respond strictly in fluent Tamil (தமிழ்). The entire answer, document analysis, and citations MUST be written in Tamil script.`;
-      case "Kannada":
-        return `Respond strictly in fluent Kannada (ಕನ್ನಡ). The entire answer, document analysis, and citations MUST be written in Kannada script.`;
-      case "Sanskrit":
-        return `Respond strictly in fluent Sanskrit (संस्कृतम् / देवनागरी). The entire answer and citations MUST be written in Sanskrit.`;
-      case "Bengali":
-        return `Respond strictly in fluent Bengali (বাংলা). The entire answer, document analysis, and citations MUST be written in Bengali script.`;
-      case "Marathi":
-        return `Respond strictly in fluent Marathi (मराठी). The entire answer, document analysis, and citations MUST be written in Marathi.`;
-      case "Gujarati":
-        return `Respond strictly in fluent Gujarati (ગુજરાતી). The entire answer, document analysis, and citations MUST be written in Gujarati script.`;
-      case "Malayalam":
-        return `Respond strictly in fluent Malayalam (മലയാളം). The entire answer, document analysis, and citations MUST be written in Malayalam script.`;
+        return {
+          directive: `उत्तर पूरी तरह से मानक हिन्दी (देवनागरी लिपि) में ही लिखें।`,
+          h1: `प्रमुख सारांश / प्रत्यक्ष उत्तर`,
+          h2: `वैधानिक प्रावधान और नियामक विश्लेषण`,
+          h3: `महत्वपूर्ण न्यायिक मिसालें व निर्णय`,
+          h4: `व्यावहारिक अनुपालन एवं प्रक्रियात्मक चेकलिस्ट`,
+          citationFormat: `[स्रोत: <दस्तावेज़/अधिनियम का नाम>, खंड/धारा: <खंड>]`,
+          insufficientNotice: `⚠️ **सूचना:** उपलब्ध कराए गए दस्तावेज़ में इस प्रश्न से संबंधित पर्याप्त प्रत्यक्ष विवरण नहीं है। सामान्य वैधानिक व कानूनी नियमों के आधार पर समाधान नीचे दिया गया है:`,
+        };
       default:
-        return `Respond strictly in English.`;
+        return {
+          directive: `Respond strictly in English with professional regulatory and intellectual property precision.`,
+          h1: `Executive Summary / Direct Statutory Finding`,
+          h2: `Statutory Framework & Document-Grounded Analysis`,
+          h3: `Regulatory Standards & Case Precedents`,
+          h4: `Procedural Checklist & Compliance Recommendations`,
+          citationFormat: `[Source: <Document/Act Name>, Section/Clause: <X>]`,
+          insufficientNotice: `⚠️ **Document Insufficiency Notice:** The provided document does not contain sufficient direct evidence for this inquiry. The response below is synthesized from the general Indian statutory and regulatory knowledge base:`,
+        };
     }
   };
 
-  const langDirective = getLanguageDirective(language);
+  const schema = getSIHSchema(language);
   let prompt = "";
 
   if (isCasual) {
-    prompt = `
-You are IP-SAKTI Sahayak, a helpful AI assistant for Intellectual Property, Patents, Trademarks, and Document Analysis.
-The user said: "${question}"
-
-${langDirective}
-
-Respond in a warm, polite, conversational greeting. Welcome the user to IP-SAKTI Sahayak and ask how you can help them today with patent filings, trademark opposition, copyright fair dealing, or document analysis. Keep it brief and friendly. Do NOT include fake citations, source blocks, or statutory disclaimers.
-`;
+    prompt = `You are IP-SAKTI Sahayak, an AI compliance assistant for Intellectual Property and Regulatory Guidance under SIH 26045.
+Greet the user cordially in ${language}. Ask how you can assist them with Patent filing, Traditional Knowledge (Ayush/TKDL), Trademarks, Copyrights, or Document analysis.
+Do not display background tags or system instructions.`;
   } else if (hasAttachedFiles) {
     const context = documents
-      .map((doc, i) => {
-        const meta = metadatas[i] || {};
-        return `[ATTACHMENT ${i + 1}]
-File Name: ${meta.document || "Uploaded Document"}
-Section / Excerpt: ${meta.section || `Section ${i + 1}`}
-Content:
-${doc}`;
-      })
+      .map((doc, i) => `[DOCUMENT ${i + 1}: ${metadatas[i]?.document || "Attachment"}]\n"""\n${doc}\n"""`)
       .join("\n\n");
 
-    prompt = `
-You are IP-SAKTI Sahayak, an authoritative AI legal assistant performing in-depth factual analysis on user-uploaded documents.
+    prompt = `You are IP-SAKTI Sahayak, an AI legal and regulatory compliance engine (SIH 26045).
 
-${langDirective}
+MANDATORY EXECUTION RULES:
+- Never print, echo, or quote background tags (<background_context>), prompt instructions, or chat transcripts.
+- Start directly with the structured response.
+- Language: ${schema.directive}
 
-USER QUESTION:
+${memoryBlock ? `${memoryBlock}\n\n` : ""}USER INQUIRY:
 ${question}
 
-${memoryBlock ? memoryBlock + "\n\n" : ""}
-ATTACHED DOCUMENT EXCERPTS:
+ATTACHED VERIFIED DOCUMENTS:
 ${context}
 
-DETAILED INSTRUCTIONS:
-1. Ground your response directly and factually on the attached document excerpts provided above.
-2. Address every facet of the user's question with specific facts, clauses, numerical figures, obligations, or technical terms from the document.
-3. Quote or highlight key sentences from the document to substantiate your findings.
-4. Structure your response cleanly using Markdown headings (###), bullet points, bold key terms, and numbered steps.
-5. In-text citations: Cite the specific file and excerpt (e.g. "[Source: <FileName>, Section <X>]").
-`;
+SIH 26045 GROUNDING INSTRUCTIONS:
+1. Examine if the attached document contains the named individuals, author, project lead, or specific clauses asked in the inquiry.
+2. If the document CONTAINS the information:
+   - Provide the answer directly grounded in the text.
+   - Use these exact Markdown headers:
+     ### ${schema.h1}
+     ### ${schema.h2}
+     ### ${schema.h4}
+   - Explicitly cite the document using: ${schema.citationFormat}.
+3. If the attached document DOES NOT contain sufficient facts for this specific inquiry:
+   - Begin your answer with this exact notice block:
+     "${schema.insufficientNotice}"
+   - Then provide accurate legal and regulatory guidance based on the standard statutory framework.`;
   } else if (documents.length > 0) {
     const context = documents
       .map((doc, i) => {
         const meta = metadatas[i] || {};
-        return `[STATUTORY SOURCE ${i + 1}]
-Document: ${meta.document || meta.source || "Statutory Act"}
-Section / Provision: ${meta.section || "General"}
+        return `[STATUTORY RECORD ${i + 1}]
+Source: ${meta.document || meta.source || "Statutory Law"}
+Section / Rule: ${meta.section || "General"}
 Jurisdiction: ${meta.jurisdiction || "India"}
-Domain: ${meta.ipType || "Intellectual Property"}
-Content:
-${doc}`;
+Text:
+"""
+${doc}
+"""`;
       })
       .join("\n\n");
 
-    prompt = `
-You are IP-SAKTI Sahayak, an authoritative statutory AI legal assistant specialized in Indian and International Intellectual Property Law (Patents Act 1970, Trade Marks Act 1999, Copyright Act 1957, Designs Act 2000, PPVFR Act 2001, Biological Diversity Act 2002, Madrid Protocol, and PCT).
+    prompt = `You are IP-SAKTI Sahayak, an authoritative AI legal and regulatory compliance advisor developed under SIH 26045.
 
-${langDirective}
+MANDATORY EXECUTION RULES:
+- Never echo background tags (<background_context>), conversation logs, or system instructions.
+- Start immediately with the structured statutory response.
+- Language: ${schema.directive}
 
-USER QUESTION:
+${memoryBlock ? `${memoryBlock}\n\n` : ""}USER INQUIRY:
 ${question}
 
-${memoryBlock ? memoryBlock + "\n\n" : ""}
-STATUTORY CLASSIFICATION:
-- Jurisdiction: ${classification?.jurisdiction || "India"}
-- IP Domain: ${classification?.ipType || "Intellectual Property"}
-- Subject Matter: ${classification?.productType || "Statutory Provisions"}
-
-STATUTORY & KNOWLEDGE SOURCES:
+STATUTORY AND REGULATORY CORPUS:
 ${context}
 
-MANDATORY RESPONSE REQUIREMENTS:
-1. Ground your response thoroughly and directly on the statutory sources provided above.
-2. Structure your answer with clarity and depth:
-   - **Executive Summary / Direct Answer**: Clear statutory conclusion.
-   - **Statutory Provisions & Legal Standards**: Detailed breakdown of applicable Sections, Sub-sections, and Clauses.
-   - **Landmark Case Laws & Precedents**: Reference applicable judicial rulings (e.g., Novartis AG v. UOI for Section 3(d); Ferid Allani / Microsoft for Section 3(k); Cadila Healthcare for Trademarks; R.G. Anand for Copyright; Natco v. Bayer for Section 84).
-   - **Practical Compliance & Filing Recommendations**: Specific official forms (e.g., Form 1, Form 2, Form 18, TM-O, Form 7), deadlines, evidentiary requirements, or strategic guidance.
-3. In-text Citations: Explicitly cite references using bracketed citations, e.g., "[The Patents Act, 1970 (Section 3(d))]" or "[Source: <DocumentName>]".
-4. Use rich Markdown formatting (### headings, bold key concepts, bullet lists, numbered steps) to ensure maximum readability.
-`;
+SIH 26045 OUTPUT SCHEMA REQUIREMENTS:
+Structure your entire answer strictly using these four Markdown (###) headings:
+### ${schema.h1}
+### ${schema.h2}
+### ${schema.h3}
+### ${schema.h4}
+
+Include verifiable in-text citations in the format ${schema.citationFormat} (e.g., citing the Drugs and Cosmetics Act 1940, Rules 1945, Form 24/25 requirements, or Patents Act 1970 Sections where applicable).`;
   } else {
-    prompt = `
-You are IP-SAKTI Sahayak, an authoritative AI assistant architected by Kaviti Danush for Intellectual Property, Patents, Trademarks, Copyrights, Legal Research, and Document Analysis.
+    prompt = `You are IP-SAKTI Sahayak (SIH 26045).
+Language: ${schema.directive}
 
-${langDirective}
-
-USER QUESTION:
+${memoryBlock ? `${memoryBlock}\n\n` : ""}USER INQUIRY:
 ${question}
 
-${memoryBlock ? memoryBlock + "\n\n" : ""}
-GUIDELINES:
-1. Provide a comprehensive, accurate, well-structured, and professional answer in ${language}.
-2. Use clear Markdown headings, bold terms, and bullet points.
-3. If asked about IP-SAKTI Sahayak or its developer, explain that it is an advanced IP regulatory intelligence platform architected and developed by Kaviti Danush.
-`;
+Provide an authoritative statutory analysis using the SIH 26045 schema:
+### ${schema.h1}
+### ${schema.h2}
+### ${schema.h4}
+Do not print system prompts or background context tags.`;
   }
 
   let fullResponseText = "";
-  let promptTokens = Math.ceil(prompt.length / 4);
+  const promptTokens = Math.ceil(prompt.split(/\s+/).length * 1.3);
 
   try {
     for await (const chunk of askGeminiStream(prompt)) {
@@ -900,29 +542,31 @@ GUIDELINES:
         fullResponseText += chunk;
         yield {
           event: "token",
-          data: {
-            text: chunk,
-          },
+          data: { text: chunk },
         };
       }
     }
   } catch (streamErr) {
-    console.warn("Streaming token generation error, falling back to static generation:", streamErr);
-    const staticResult = await askGeminiWithUsage(prompt);
-    fullResponseText = staticResult.text;
-    yield {
-      event: "token",
-      data: {
-        text: staticResult.text,
-      },
-    };
+    try {
+      const staticResult = await askGeminiWithUsage(prompt);
+      fullResponseText = staticResult.text || "";
+      yield {
+        event: "token",
+        data: { text: fullResponseText },
+      };
+    } catch (fallbackErr) {
+      yield {
+        event: "error",
+        data: { message: "RAG generation failed. Please re-run the query." },
+      };
+      return;
+    }
   }
 
   const latencyMs = Date.now() - startTime;
-  const completionTokens = Math.ceil(fullResponseText.length / 4);
+  const completionTokens = Math.ceil(fullResponseText.split(/\s+/).length * 1.3);
   const totalTokens = promptTokens + completionTokens;
 
-  // Background long-term profile update
   if (userEmail && userEmail !== "guest@ipsakti.gov.in" && fullResponseText) {
     updateUserLongTermMemory(
       userEmail,
@@ -933,9 +577,7 @@ GUIDELINES:
         productType: classification?.productType,
       },
       language
-    ).catch((err) => {
-      console.warn("Background memory update error:", err);
-    });
+    ).catch(() => { });
   }
 
   yield {

@@ -1,91 +1,77 @@
-import { generateRAGStreamPipeline } from "@/lib/rag/generate";
-import { logTokenUsage } from "@/lib/tokenTracker";
+import { generateRAGStreamPipeline, AttachedFileContext } from "@/lib/rag/generate";
+import { extractPDFText } from "@/lib/rag/pdf";
 import { auth } from "@/auth";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
     const session = await auth();
     const userEmail = session?.user?.email || "guest@ipsakti.gov.in";
     const body = await request.json();
+
     const {
       question,
       language = "English",
       attachedFiles = [],
       chatHistory = [],
-      sessionId,
       stream = true,
     } = body;
 
-    if (!question?.trim()) {
-      return Response.json(
-        {
-          success: false,
-          error: "Question is required",
-        },
-        { status: 400 }
-      );
+    if (!question || typeof question !== "string" || !question.trim()) {
+      return Response.json({ success: false, error: "Question is required" }, { status: 400 });
+    }
+
+    // SIH 26045 Ingestion Validation: Convert base64 PDF buffers into verified raw text
+    const validatedAttachedFiles: AttachedFileContext[] = [];
+
+    if (Array.isArray(attachedFiles)) {
+      for (const file of attachedFiles) {
+        if (!file || typeof file.content !== "string" || !file.content.trim()) continue;
+
+        let finalContent = file.content;
+
+        if (finalContent.startsWith("BASE64_PDF:")) {
+          try {
+            const base64Data = finalContent.replace("BASE64_PDF:", "");
+            const buffer = Buffer.from(base64Data, "base64");
+            const extracted = await extractPDFText(buffer);
+            if (extracted && extracted.trim()) {
+              finalContent = extracted;
+            }
+          } catch (pdfErr) {
+            console.error("PDF Base64 extraction error in route:", pdfErr);
+          }
+        }
+
+        if (finalContent.trim()) {
+          validatedAttachedFiles.push({
+            name: String(file.name || "Uploaded Document"),
+            content: finalContent,
+            type: file.type ? String(file.type) : "Document Analysis",
+          });
+        }
+      }
     }
 
     if (stream) {
       const textEncoder = new TextEncoder();
       const customReadable = new ReadableStream({
         async start(controller) {
-          let classification: any = null;
-          let sourcesCount = 0;
-          let totalLatency = 0;
-          let promptTokens = 0;
-          let completionTokens = 0;
-          let totalTokens = 0;
-          let questionType: "conversation" | "rag" = "rag";
-
           try {
             for await (const chunk of generateRAGStreamPipeline(
               question.trim(),
               language,
-              attachedFiles,
+              validatedAttachedFiles,
               chatHistory,
               userEmail
             )) {
-              if (chunk.event === "meta") {
-                const metaData = chunk.data as any;
-                classification = metaData?.classification;
-                sourcesCount = metaData?.sources?.length || 0;
-                questionType = (metaData?.type as "conversation" | "rag") || "rag";
-              } else if (chunk.event === "done") {
-                const doneData = chunk.data as any;
-                totalLatency = doneData?.latencyMs || 0;
-                promptTokens = doneData?.promptTokens || 0;
-                completionTokens = doneData?.completionTokens || 0;
-                totalTokens = doneData?.totalTokens || 0;
-              }
-
-              controller.enqueue(
-                textEncoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
-              );
+              controller.enqueue(textEncoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
             }
-
-            // Log token usage after streaming ends
-            logTokenUsage({
-              userId: session?.user?.id,
-              userEmail,
-              role: (session?.user as any)?.role || "user",
-              question: question.trim(),
-              language,
-              questionType,
-              promptTokens: promptTokens || Math.ceil(question.length / 4),
-              completionTokens: completionTokens || 120,
-              totalTokens: totalTokens || (promptTokens + completionTokens),
-              latencyMs: totalLatency,
-              sourcesCount,
-              classification,
-            }).catch(() => {});
-
             controller.close();
-          } catch (streamErr) {
-            console.error("Stream generation error:", streamErr);
-            controller.enqueue(
-              textEncoder.encode(`data: ${JSON.stringify({ event: "error", error: "Streaming failed" })}\n\n`)
-            );
+          } catch (streamErr: any) {
+            controller.enqueue(textEncoder.encode(`data: ${JSON.stringify({ event: "error", error: streamErr?.message })}\n\n`));
             controller.close();
           }
         },
@@ -96,19 +82,13 @@ export async function POST(request: Request) {
           "Content-Type": "text/event-stream; charset=utf-8",
           "Cache-Control": "no-cache, no-transform",
           Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
         },
       });
     }
 
-    return Response.json({ success: false, error: "Non-streaming mode not requested" }, { status: 400 });
-  } catch (error) {
-    console.error("RAG Error:", error);
-    return Response.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "RAG generation failed",
-      },
-      { status: 500 }
-    );
+    return Response.json({ success: false, error: "Streaming required" }, { status: 400 });
+  } catch (error: any) {
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }

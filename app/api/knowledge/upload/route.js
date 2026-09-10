@@ -8,14 +8,16 @@ import fs from "fs/promises";
 import path from "path";
 import os from "os";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(request) {
   try {
     const session = await auth();
     const userEmail = session?.user?.email || "guest@ipsakti.gov.in";
-
     const contentType = request.headers.get("content-type") || "";
 
-    // Handle direct JSON text upload
+    // 1. Handle direct JSON text upload
     if (contentType.includes("application/json")) {
       const { title, text, jurisdiction = "India", ipType = "General" } = await request.json();
 
@@ -30,7 +32,7 @@ export async function POST(request) {
       const chunks = splitText(text, 1000, 200);
       const chunkMetrics = evaluateChunkingEfficiency(text, chunks, 1000);
 
-      // Try indexing into ChromaDB safely
+      // Try indexing into ChromaDB
       try {
         for (let i = 0; i < chunks.length; i++) {
           const embedding = await generateEmbedding(chunks[i]);
@@ -49,7 +51,7 @@ export async function POST(request) {
         console.warn("Chroma indexing warning:", chromaErr?.message || chromaErr);
       }
 
-      // Safe temporary write to /tmp or data/documents if writable
+      // Optional temporary local write
       let savedFilePath = "";
       try {
         const docsDir = path.join(os.tmpdir(), "ip-sakti-docs");
@@ -57,7 +59,7 @@ export async function POST(request) {
         savedFilePath = path.join(docsDir, `${docTitle.replace(/[^a-z0-9_-]/gi, "_")}.txt`);
         await fs.writeFile(savedFilePath, text, "utf-8");
       } catch {
-        // Ignore read-only filesystem errors on serverless
+        // Safe to ignore on serverless environments
       }
 
       const client = await clientPromise;
@@ -94,16 +96,13 @@ export async function POST(request) {
       });
     }
 
-    // Handle FormData (PDF upload)
+    // 2. Handle FormData (PDF / Document upload)
     const formData = await request.formData();
     const file = formData.get("file");
 
     if (!file || typeof file === "string") {
       return Response.json(
-        {
-          success: false,
-          error: "PDF file is required",
-        },
+        { success: false, error: "File is required" },
         { status: 400 }
       );
     }
@@ -111,44 +110,41 @@ export async function POST(request) {
     const jurisdiction = formData.get("jurisdiction")?.toString() || "India";
     const ipType = formData.get("ipType")?.toString() || "General";
 
-    // Read buffer
+    // Convert file to Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const fileBase64 = buffer.toString("base64");
 
-    // Safe temporary save to /tmp if writable
-    let safeFilePath = "";
-    try {
-      const docsDir = path.join(os.tmpdir(), "ip-sakti-docs");
-      await fs.mkdir(docsDir, { recursive: true });
-      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      safeFilePath = path.join(docsDir, safeFileName);
-      await fs.writeFile(safeFilePath, buffer);
-    } catch {
-      // Ignore read-only filesystem errors on serverless
-    }
-
     let text = "";
-    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    const isPDF = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (isPDF) {
       try {
         text = await extractPDFText(buffer);
       } catch (pdfErr) {
-        console.warn("PDF parsing fallback:", pdfErr?.message || pdfErr);
-        text = `Extracted text from ${file.name}`;
+        console.error("PDF parsing error:", pdfErr?.message || pdfErr);
       }
     } else {
-      // Text file
+      // Plain text, Markdown, CSV
       text = buffer.toString("utf-8");
     }
 
-    if (!text?.trim()) {
-      text = `Official Document: ${file.name}\nJurisdiction: ${jurisdiction}\nIP Type: ${ipType}`;
+    // Fallback: If text extraction failed or returned nothing
+    if (!text || !text.trim()) {
+      return Response.json(
+        {
+          success: false,
+          error: `Could not extract text from "${file.name}". Please ensure it is not a password-protected or scanned image PDF.`,
+        },
+        { status: 422 }
+      );
     }
 
-    const chunks = splitText(text, 1000, 200);
-    const chunkMetrics = evaluateChunkingEfficiency(text, chunks, 1000);
+    const cleanText = text.trim();
+    const chunks = splitText(cleanText, 1000, 200);
+    const chunkMetrics = evaluateChunkingEfficiency(cleanText, chunks, 1000);
 
-    // Index into ChromaDB safely
+    // Index into ChromaDB
     try {
       for (let i = 0; i < chunks.length; i++) {
         const embedding = await generateEmbedding(chunks[i]);
@@ -167,7 +163,7 @@ export async function POST(request) {
       console.warn("Chroma indexing warning:", chromaErr?.message || chromaErr);
     }
 
-    // Save in MongoDB with Base64 backup for instant cloud download/preview
+    // Save in MongoDB
     const client = await clientPromise;
     const db = client.db("ip-sakti");
     const documents = db.collection("documents");
@@ -176,11 +172,10 @@ export async function POST(request) {
       userEmail,
       name: file.name,
       originalName: file.name,
-      filePath: safeFilePath,
-      fileBase64: fileBase64.length < 15000000 ? fileBase64 : undefined, // Keep under 15MB MongoDB limit
-      rawText: text.substring(0, 100000),
+      fileBase64: fileBase64.length < 15000000 ? fileBase64 : undefined,
+      rawText: cleanText.substring(0, 100000),
       chunks: chunks.length,
-      characters: text.length,
+      characters: cleanText.length,
       efficiencyScore: chunkMetrics.efficiencyScore,
       chunkMetrics,
       type: file.type || "application/pdf",
@@ -194,8 +189,8 @@ export async function POST(request) {
       success: true,
       message: "Document successfully added to knowledge base",
       file: file.name,
-      rawText: text,
-      totalCharacters: text.length,
+      rawText: cleanText, // Guaranteed extracted string
+      totalCharacters: cleanText.length,
       totalChunks: chunks.length,
       efficiencyScore: chunkMetrics.efficiencyScore,
       chunkMetrics,

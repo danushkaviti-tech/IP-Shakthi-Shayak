@@ -1,25 +1,45 @@
 import PDFParser from "pdf2json";
+import zlib from "zlib";
 
+/**
+ * Robust PDF text extractor supporting native pdf2json and zlib flatedecode stream parsing.
+ */
 export function extractPDFText(buffer: Buffer): Promise<string> {
   return new Promise((resolve) => {
-    // Mode 1: extract text content directly
-    const parser = new (PDFParser as any)(null, 1);
     let resolved = false;
 
-    // Timeout safety after 12 seconds
+    // Resolve ESM / CJS module interop
+    const ParserConstructor =
+      typeof PDFParser === "function"
+        ? PDFParser
+        : (PDFParser as any)?.default || PDFParser;
+
+    let parser: any;
+    try {
+      parser = new ParserConstructor(null, 1);
+    } catch {
+      try {
+        parser = new (ParserConstructor as any)();
+      } catch (ctorErr) {
+        console.warn("Failed to instantiate PDFParser, using deep stream extractor:", ctorErr);
+        resolve(fallbackDeepPdfExtract(buffer));
+        return;
+      }
+    }
+
     const timeout = setTimeout(() => {
       if (!resolved) {
         resolved = true;
-        resolve(fallbackRawPdfExtract(buffer));
+        resolve(fallbackDeepPdfExtract(buffer));
       }
-    }, 12000);
+    }, 8000);
 
     parser.on("pdfParser_dataError", (error: any) => {
       if (!resolved) {
         resolved = true;
         clearTimeout(timeout);
-        console.warn("pdf2json error, attempting raw stream fallback:", error?.parserError || error);
-        resolve(fallbackRawPdfExtract(buffer));
+        console.warn("pdf2json error, falling back:", error?.parserError || error);
+        resolve(fallbackDeepPdfExtract(buffer));
       }
     });
 
@@ -28,63 +48,63 @@ export function extractPDFText(buffer: Buffer): Promise<string> {
         resolved = true;
         clearTimeout(timeout);
         try {
-          // 1. Try parser.getRawTextContent()
-          const rawTextContent = typeof parser.getRawTextContent === "function" ? parser.getRawTextContent() : "";
-          if (rawTextContent && rawTextContent.trim().length > 20) {
-            // Clean up form feed / page separators
-            const cleaned = rawTextContent
-              .replace(/----------------Page \(\d+\) Break----------------/g, "\n\n")
-              .replace(/\r\n/g, "\n")
-              .trim();
-            if (cleaned.length > 20) {
-              resolve(cleaned);
-              return;
+          // 1. Check getRawTextContent
+          if (typeof parser.getRawTextContent === "function") {
+            const raw = parser.getRawTextContent();
+            if (raw && raw.trim().length > 30) {
+              const cleaned = raw
+                .replace(/----------------Page \(\d+\) Break----------------/g, "\n\n")
+                .replace(/\r\n/g, "\n")
+                .trim();
+              if (cleaned.length > 30) {
+                resolve(cleaned);
+                return;
+              }
             }
           }
 
-          // 2. Parse from Pages array with safe decoding and page tracking
+          // 2. Extract from Pages array
           if (pdfData?.Pages && Array.isArray(pdfData.Pages)) {
-            const extractedPages: string[] = [];
-
-            for (let pIdx = 0; pIdx < pdfData.Pages.length; pIdx++) {
-              const page = pdfData.Pages[pIdx];
+            const pageTexts: string[] = [];
+            for (let i = 0; i < pdfData.Pages.length; i++) {
+              const page = pdfData.Pages[i];
               if (!page.Texts || !Array.isArray(page.Texts)) continue;
 
-              const pageWords: string[] = [];
+              const lineWords: string[] = [];
               for (const t of page.Texts) {
                 if (t.R && Array.isArray(t.R)) {
                   for (const r of t.R) {
                     if (r && typeof r.T === "string") {
                       try {
-                        const decoded = decodeURIComponent(r.T.replace(/\+/g, "%20"));
-                        pageWords.push(decoded);
+                        lineWords.push(decodeURIComponent(r.T.replace(/\+/g, "%20")));
                       } catch {
                         try {
-                          pageWords.push(unescape(r.T));
+                          lineWords.push(unescape(r.T));
                         } catch {
-                          pageWords.push(r.T);
+                          lineWords.push(r.T);
                         }
                       }
                     }
                   }
                 }
               }
-              if (pageWords.length > 0) {
-                extractedPages.push(`[Page ${pIdx + 1}]\n` + pageWords.join(" "));
+
+              if (lineWords.length > 0) {
+                pageTexts.push(lineWords.join(" "));
               }
             }
 
-            const fullText = extractedPages.join("\n\n").trim();
-            if (fullText.length > 20) {
-              resolve(fullText);
+            const joined = pageTexts.join("\n\n").trim();
+            if (joined.length > 30) {
+              resolve(joined);
               return;
             }
           }
 
-          resolve(fallbackRawPdfExtract(buffer));
+          resolve(fallbackDeepPdfExtract(buffer));
         } catch (err) {
-          console.warn("pdf2json dataReady parse error:", err);
-          resolve(fallbackRawPdfExtract(buffer));
+          console.warn("pdfData extraction error:", err);
+          resolve(fallbackDeepPdfExtract(buffer));
         }
       }
     });
@@ -95,27 +115,69 @@ export function extractPDFText(buffer: Buffer): Promise<string> {
       if (!resolved) {
         resolved = true;
         clearTimeout(timeout);
-        resolve(fallbackRawPdfExtract(buffer));
+        resolve(fallbackDeepPdfExtract(buffer));
       }
     }
   });
 }
 
-function fallbackRawPdfExtract(buffer: Buffer): string {
+/**
+ * Decompresses FlateDecode streams using native zlib to extract raw text
+ * even if pdf2json fails completely.
+ */
+function fallbackDeepPdfExtract(buffer: Buffer): string {
   try {
-    const raw = buffer.toString("binary");
-    const textMatches: string[] = [];
-    const regex = /\((.*?)\)[\s]*Tj/g;
-    let match;
-    while ((match = regex.exec(raw)) !== null) {
-      if (match[1] && match[1].length > 1) {
-        textMatches.push(match[1]);
+    const extractedTextParts: string[] = [];
+
+    // Find stream ... endstream blocks
+    const streamStartRegex = /stream[\r\n]+/g;
+    const streamEndStr = "endstream";
+    const binary = buffer.toString("binary");
+
+    let match: RegExpExecArray | null;
+    while ((match = streamStartRegex.exec(binary)) !== null) {
+      const startIndex = match.index + match[0].length;
+      const endIndex = binary.indexOf(streamEndStr, startIndex);
+      if (endIndex === -1) continue;
+
+      const streamBuffer = buffer.subarray(startIndex, endIndex);
+
+      // Attempt zlib inflation
+      let decompressed: Buffer | null = null;
+      try {
+        decompressed = zlib.inflateSync(streamBuffer);
+      } catch {
+        try {
+          decompressed = zlib.inflateRawSync(streamBuffer);
+        } catch {
+          decompressed = null;
+        }
+      }
+
+      const textToScan = decompressed ? decompressed.toString("utf-8") : streamBuffer.toString("binary");
+
+      // Extract Tj and TJ text patterns
+      const textMatches = textToScan.match(/\((.*?)\)\s*Tj|\[(.*?)\]\s*TJ/g);
+      if (textMatches) {
+        for (const item of textMatches) {
+          const clean = item
+            .replace(/[()\[\]]|Tj|TJ/g, " ")
+            .replace(/\\([0-9]{3}|.)/g, " ")
+            .trim();
+          if (clean.length > 1) {
+            extractedTextParts.push(clean);
+          }
+        }
       }
     }
-    const extracted = textMatches.join(" ").replace(/\\([0-9]{3}|.)/g, " ").trim();
-    if (extracted.length > 40) return extracted;
-  } catch (e) {
-    console.warn("Raw PDF string fallback error:", e);
+
+    const result = extractedTextParts.join(" ").replace(/\s+/g, " ").trim();
+    if (result.length > 40) {
+      return result;
+    }
+  } catch (err) {
+    console.warn("Deep PDF text fallback error:", err);
   }
-  return "Verified PDF Document Record in IP-SAKTI Knowledge Base.";
-}
+
+  return "";
+}

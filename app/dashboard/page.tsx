@@ -204,7 +204,7 @@ export default function UserDashboard() {
     setChunkModalOpen(true);
   }
 
-  // Sidebar toggle (auto-closed on mobile by default)
+  // Sidebar toggle
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -216,7 +216,7 @@ export default function UserDashboard() {
   // Stats
   const [userStats, setUserStats] = useState<any>(null);
 
-  // RLHF Feedback state (ChatGPT-style model training data)
+  // RLHF Feedback state
   const [feedbackMap, setFeedbackMap] = useState<Record<number, "positive" | "negative">>({});
   const [negativeFeedbackModal, setNegativeFeedbackModal] = useState<{
     index: number;
@@ -472,6 +472,7 @@ export default function UserDashboard() {
     }
   }
 
+  // File Upload with Direct Base64 Fallback
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -487,29 +488,45 @@ export default function UserDashboard() {
         let chunks = 1;
         let chunkMetrics: ChunkEfficiencyMetrics | undefined = undefined;
 
-        if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-          const formData = new FormData();
-          formData.append("file", file);
-          const res = await fetch("/api/knowledge/upload", {
-            method: "POST",
-            body: formData,
-          });
-          const uploadRes = await res.json();
-          efficiencyScore = uploadRes.efficiencyScore || 96.5;
-          chunks = uploadRes.totalChunks || 1;
-          chunkMetrics = uploadRes.chunkMetrics;
-          content = uploadRes.rawText || (await file.text().catch(() => "")) || `Document content for ${file.name}`;
-          if (!chunkMetrics && content) {
-            const genChunks = splitText(content, 1000, 200);
-            chunkMetrics = evaluateChunkingEfficiency(content, genChunks);
-            chunks = genChunks.length;
-            efficiencyScore = chunkMetrics.efficiencyScore;
+        if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+          try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("language", language);
+
+            const res = await fetch("/api/knowledge/upload", {
+              method: "POST",
+              body: formData,
+            });
+            const uploadRes = await res.json();
+            if (uploadRes.success && uploadRes.rawText) {
+              content = uploadRes.rawText;
+              efficiencyScore = uploadRes.efficiencyScore || 96.5;
+              chunks = uploadRes.totalChunks || 1;
+              chunkMetrics = uploadRes.chunkMetrics;
+            }
+          } catch (uploadErr) {
+            console.warn("Upload endpoint failed, using base64 fallback:", uploadErr);
+          }
+
+          // Resilient Fallback: If server upload returned no text, send base64 buffer directly
+          if (!content || !content.trim()) {
+            const arrayBuffer = await file.arrayBuffer();
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = "";
+            for (let b = 0; b < bytes.byteLength; b++) {
+              binary += String.fromCharCode(bytes[b]);
+            }
+            content = `BASE64_PDF:${btoa(binary)}`;
           }
         } else {
           content = await file.text();
-          const generatedChunks = splitText(content, 1000, 200);
-          chunks = generatedChunks.length;
-          chunkMetrics = evaluateChunkingEfficiency(content, generatedChunks);
+        }
+
+        if (content.trim()) {
+          const genChunks = splitText(content, 1000, 200);
+          chunks = genChunks.length;
+          chunkMetrics = evaluateChunkingEfficiency(content, genChunks);
           efficiencyScore = chunkMetrics.efficiencyScore;
         }
 
@@ -517,7 +534,7 @@ export default function UserDashboard() {
           name: file.name,
           size: file.size,
           type: file.type || "document",
-          content,
+          content: content,
           efficiencyScore,
           chunks,
           chunkMetrics,
@@ -553,7 +570,6 @@ export default function UserDashboard() {
       setThinkingSeconds(Number(((Date.now() - startTime) / 1000).toFixed(1)));
     }, 100);
 
-    // Interval to cycle through thinking/analyzing stages smoothly
     const stageInterval = setInterval(() => {
       setThinkingStep((prev) => (prev < 3 ? prev + 1 : prev));
     }, 1150);
@@ -571,7 +587,6 @@ export default function UserDashboard() {
       })),
     };
 
-    // Pre-insert assistant message to display line-by-line streaming in real-time
     const initialAssistantMsg: Message = {
       role: "assistant",
       content: "",
@@ -585,7 +600,6 @@ export default function UserDashboard() {
     setAttachedFiles([]);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
-    // Build multi-turn memory history from previous turns in this session
     const chatHistory = messages.slice(-10).map((m) => ({
       role: m.role,
       content: m.content,
@@ -630,7 +644,6 @@ export default function UserDashboard() {
       let streamSimilarityIndex = 0.942;
       let streamTokens: any = undefined;
 
-      // Natural typewriter streaming loop (smooth line-by-line writing cadence)
       const typewriterTick = new Promise<void>((resolve) => {
         const timer = setInterval(() => {
           if (displayedContent.length < targetContent.length) {
@@ -715,7 +728,6 @@ export default function UserDashboard() {
 
       const calculatedDuration = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
 
-      // Persist complete multi-turn session to MongoDB / state
       const finalAssistantMsg: Message = {
         role: "assistant",
         content: targetContent,
@@ -726,6 +738,15 @@ export default function UserDashboard() {
         similarityIndex: streamSimilarityIndex,
         tokens: streamTokens,
       };
+
+      setMessages((prev) => {
+        const next = [...prev];
+        const lastIdx = next.length - 1;
+        if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+          next[lastIdx] = finalAssistantMsg;
+        }
+        return next;
+      });
 
       const finalMessagesList = [...messages, userMsg, finalAssistantMsg];
       saveChatSession(currentSessionId, finalMessagesList, language);
@@ -763,23 +784,31 @@ export default function UserDashboard() {
     setMessages((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function deleteInquiryLog(e: React.MouseEvent, id: string) {
-    e.stopPropagation();
+  function downloadCitationDocument(src: CitationData) {
     try {
-      setUserStats((prev: any) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          recentLogs: (prev.recentLogs || []).filter((l: any) => l.id !== id),
-          totalQueries: Math.max(0, (prev.totalQueries || 1) - 1),
-        };
-      });
-
-      await fetch(`/api/stats?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-    } catch (err) {
-      console.error("Failed to delete log:", err);
+      if (src.downloadUrl?.startsWith("data:")) {
+        const link = document.createElement("a");
+        link.href = src.downloadUrl;
+        link.download = `${src.document.replace(/\.[^/.]+$/, "")}-excerpt.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (src.fullText) {
+        const blob = new Blob([src.fullText], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${src.document.replace(/\.[^/.]+$/, "")}-excerpt.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        window.open(src.downloadUrl, "_blank");
+      }
+    } catch (e) {
+      console.warn("Download fallback redirecting to link:", e);
+      window.open(src.downloadUrl, "_blank");
     }
   }
 
@@ -859,11 +888,10 @@ export default function UserDashboard() {
                           isSelected ? prev.filter((t) => t !== tag) : [...prev, tag]
                         );
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-xs transition border ${
-                        isSelected
+                      className={`px-2.5 py-1 rounded-lg text-xs transition border ${isSelected
                           ? "bg-white text-black font-semibold border-white"
                           : "bg-[#14141c] text-zinc-300 border-[#22222e] hover:border-zinc-600"
-                      }`}
+                        }`}
                     >
                       {tag}
                     </button>
@@ -905,7 +933,7 @@ export default function UserDashboard() {
         </div>
       )}
 
-      {/* MOBILE SIDEBAR BACKDROP OVERLAY */}
+      {/* MOBILE SIDEBAR BACKDROP */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -913,13 +941,12 @@ export default function UserDashboard() {
         />
       )}
 
-      {/* STATE-OF-THE-ART EXECUTIVE SIDEBAR */}
+      {/* EXECUTIVE SIDEBAR */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto h-full flex flex-col bg-[#0c0c10] border-r border-[#1a1a22] shrink-0 transition-all duration-200 ease-in-out overflow-hidden ${
-          sidebarOpen
+        className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto h-full flex flex-col bg-[#0c0c10] border-r border-[#1a1a22] shrink-0 transition-all duration-200 ease-in-out overflow-hidden ${sidebarOpen
             ? "translate-x-0 w-72 max-w-[85vw] shadow-2xl opacity-100 visible pointer-events-auto"
             : "-translate-x-full w-0 opacity-0 invisible pointer-events-none lg:translate-x-0 lg:w-64 lg:opacity-100 lg:visible lg:pointer-events-auto"
-        }`}
+          }`}
       >
         {/* SIDEBAR HEADER */}
         <div className="p-3.5 border-b border-[#1a1a22]">
@@ -968,7 +995,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* SIDEBAR QUERY & SESSION HISTORY (ChatGPT-Style Multi-Turn Sessions) */}
+        {/* SIDEBAR QUERY & SESSION HISTORY */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
           <div>
             <div className="flex items-center justify-between px-2 mb-2">
@@ -1009,11 +1036,10 @@ export default function UserDashboard() {
                             return (
                               <div
                                 key={s.id}
-                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${
-                                  isActive
+                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${isActive
                                     ? "bg-[#181824] border border-[#2c2c3e] text-white"
                                     : "hover:bg-[#15151c] text-zinc-300"
-                                }`}
+                                  }`}
                               >
                                 <button
                                   onClick={() => loadChatSession(s.id)}
@@ -1021,9 +1047,8 @@ export default function UserDashboard() {
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     <span
-                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                        isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
-                                      }`}
+                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
+                                        }`}
                                     />
                                     <span className="truncate text-[11px] font-medium">{s.title}</span>
                                   </div>
@@ -1052,11 +1077,10 @@ export default function UserDashboard() {
                             return (
                               <div
                                 key={s.id}
-                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${
-                                  isActive
+                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${isActive
                                     ? "bg-[#181824] border border-[#2c2c3e] text-white"
                                     : "hover:bg-[#15151c] text-zinc-300"
-                                }`}
+                                  }`}
                               >
                                 <button
                                   onClick={() => loadChatSession(s.id)}
@@ -1064,9 +1088,8 @@ export default function UserDashboard() {
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     <span
-                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                        isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
-                                      }`}
+                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
+                                        }`}
                                     />
                                     <span className="truncate text-[11px] font-medium">{s.title}</span>
                                   </div>
@@ -1095,11 +1118,10 @@ export default function UserDashboard() {
                             return (
                               <div
                                 key={s.id}
-                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${
-                                  isActive
+                                className={`group flex items-center justify-between w-full rounded-lg pr-1.5 transition ${isActive
                                     ? "bg-[#181824] border border-[#2c2c3e] text-white"
                                     : "hover:bg-[#15151c] text-zinc-300"
-                                }`}
+                                  }`}
                               >
                                 <button
                                   onClick={() => loadChatSession(s.id)}
@@ -1107,9 +1129,8 @@ export default function UserDashboard() {
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     <span
-                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                        isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
-                                      }`}
+                                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-emerald-400" : "bg-zinc-600 group-hover:bg-zinc-300"
+                                        }`}
                                     />
                                     <span className="truncate text-[11px] font-medium">{s.title}</span>
                                   </div>
@@ -1160,7 +1181,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* SIDEBAR FOOTER: ADMIN PORTAL SHORTCUT & USER INFO */}
+        {/* SIDEBAR FOOTER */}
         <div className="p-3 border-t border-[#1a1a22] space-y-2 bg-[#0a0a0e]">
           {isAdmin && (
             <Link
@@ -1235,7 +1256,7 @@ export default function UserDashboard() {
                 setFeedbackMathModalOpen(true);
               }}
               className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#14141c] hover:bg-[#1a1a24] border border-[#22222e] text-xs font-mono text-zinc-300 hover:text-white transition"
-              title="Inspect Model Performance & Statistical Feedback Calculations"
+              title="Inspect Model Performance"
             >
               <IconScale className="w-3.5 h-3.5 text-emerald-400" />
               <span>Model Math ({feedbackMetrics?.wilsonLowerBound ?? 92.4}%)</span>
@@ -1279,7 +1300,7 @@ export default function UserDashboard() {
         {/* MESSAGES SCROLL STREAM */}
         <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-0 py-4 sm:py-6">
           <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
-            {/* HERO LAUNCH SCREEN IF EMPTY */}
+            {/* HERO LAUNCH SCREEN */}
             {messages.length === 0 && (
               <div className="py-6 sm:py-10 flex flex-col items-center justify-center text-center space-y-4 sm:space-y-6 px-2">
                 <img
@@ -1297,7 +1318,7 @@ export default function UserDashboard() {
                   </p>
                 </div>
 
-                {/* SUGGESTION MODULES */}
+                {/* SUGGESTIONS */}
                 <div className="grid sm:grid-cols-2 gap-3 w-full max-w-xl text-left">
                   {t.suggestions.map((card, i) => (
                     <button
@@ -1317,13 +1338,12 @@ export default function UserDashboard() {
               </div>
             )}
 
-            {/* MESSAGES LIST */}
+            {/* MESSAGES */}
             {messages.map((msg, index) => (
               <div
                 key={index}
-                className={`flex gap-3.5 ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex gap-3.5 ${msg.role === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
                 {msg.role === "assistant" && (
                   <div className="relative h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-md">
@@ -1334,20 +1354,18 @@ export default function UserDashboard() {
                       <img
                         src="/logo.png"
                         alt="IP-SAKTI Logo"
-                        className={`w-full h-full object-contain rounded-lg ${
-                          loading && index === messages.length - 1 && !msg.content ? "animate-pulse-soft" : ""
-                        }`}
+                        className={`w-full h-full object-contain rounded-lg ${loading && index === messages.length - 1 && !msg.content ? "animate-pulse-soft" : ""
+                          }`}
                       />
                     </div>
                   </div>
                 )}
 
                 <div
-                  className={`max-w-full sm:max-w-[90%] rounded-2xl p-3.5 sm:p-5 shadow-sm ${
-                    msg.role === "user"
+                  className={`max-w-full sm:max-w-[90%] rounded-2xl p-3.5 sm:p-5 shadow-sm ${msg.role === "user"
                       ? "bg-[#181822] text-white border border-[#282836] rounded-tr-sm"
                       : "bg-[#0f0f14] text-zinc-200 border border-[#1c1c26] rounded-tl-sm w-full"
-                  }`}
+                    }`}
                 >
                   {/* USER MESSAGE DELETE ACTION */}
                   {msg.role === "user" && (
@@ -1476,10 +1494,9 @@ export default function UserDashboard() {
                         )}
                       </div>
                     ) : loading && index === messages.length - 1 ? (
-                      /* EXECUTIVE CHATGPT-STYLE THINKING & ANALYZING LOADER WITH APP LOGO */
+                      /* THINKING & ANALYZING LOADER WITH APP LOGO */
                       <div className="p-3.5 sm:p-4 rounded-2xl bg-[#0a0a10] border border-[#1e1e2c] shadow-xl overflow-hidden relative">
                         <div className="flex items-center gap-3 sm:gap-3.5">
-                          {/* ROTATING APP LOGO SPINNER */}
                           <div className="relative w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center">
                             <div className="logo-spinner-ring" />
                             <div className="relative h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-[#0a0a10] border border-[#1e1e2c] p-0.5 flex items-center justify-center z-10 shadow-inner">
@@ -1491,7 +1508,6 @@ export default function UserDashboard() {
                             </div>
                           </div>
 
-                          {/* CLEAN TYPOGRAPHY & LIVE STEP */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap justify-between">
                               <div className="flex items-center gap-2">
@@ -1518,7 +1534,6 @@ export default function UserDashboard() {
                           </div>
                         </div>
 
-                        {/* SUBTLE LINEAR PROGRESS SHIMMER */}
                         <div className="mt-3 h-[2px] w-full bg-[#161622] rounded-full overflow-hidden relative">
                           <div
                             className="h-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-indigo-500 transition-all duration-500 rounded-full"
@@ -1566,7 +1581,7 @@ export default function UserDashboard() {
                                 <span>{src.section}</span>
                               </div>
 
-                              {/* HIGHLIGHTED POINT EXTRACTED FROM STATUTORY TEXT */}
+                              {/* HIGHLIGHTED GROUNDING EXCERPT */}
                               <div className="p-2 sm:p-2.5 rounded-lg bg-[#040406] border border-[#181822] text-[10px] sm:text-[11px] text-zinc-300 leading-relaxed font-sans overflow-hidden">
                                 <span className="text-[9px] sm:text-[10px] text-amber-400/90 font-mono block mb-0.5">
                                   {t.citedGroundingExcerpt}
@@ -1582,16 +1597,18 @@ export default function UserDashboard() {
                                 <IconSearch className="w-3 h-3 text-zinc-400 shrink-0" />
                                 <span className="truncate">{t.inspect}</span>
                               </span>
-                              <a
-                                href={src.downloadUrl}
-                                download
-                                onClick={(e) => e.stopPropagation()}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadCitationDocument(src);
+                                }}
                                 className="px-2 sm:px-2.5 py-1 rounded-lg bg-zinc-100 text-black hover:bg-white font-semibold text-[9px] sm:text-[10px] transition shadow-sm flex items-center gap-1 shrink-0"
                                 title="Download source document"
                               >
                                 <IconDownload className="w-3 h-3" />
                                 <span>{t.download}</span>
-                              </a>
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -1620,11 +1637,10 @@ export default function UserDashboard() {
                         <button
                           onClick={() => handleThumbsUp(index, msg.content)}
                           title="Good response"
-                          className={`px-2 py-1 rounded transition flex items-center gap-1 text-[10px] sm:text-xs border ${
-                            feedbackMap[index] === "positive"
+                          className={`px-2 py-1 rounded transition flex items-center gap-1 text-[10px] sm:text-xs border ${feedbackMap[index] === "positive"
                               ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
                               : "bg-[#111118] border-[#1e1e28] text-zinc-400 hover:text-emerald-400"
-                          }`}
+                            }`}
                         >
                           <IconThumbUp className="w-3 h-3" />
                           <span>{t.goodFeedback}</span>
@@ -1633,11 +1649,10 @@ export default function UserDashboard() {
                         <button
                           onClick={() => handleThumbsDown(index, msg.content)}
                           title="Poor response"
-                          className={`px-2 py-1 rounded transition flex items-center gap-1 text-[10px] sm:text-xs border ${
-                            feedbackMap[index] === "negative"
+                          className={`px-2 py-1 rounded transition flex items-center gap-1 text-[10px] sm:text-xs border ${feedbackMap[index] === "negative"
                               ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
                               : "bg-[#111118] border-[#1e1e28] text-zinc-400 hover:text-rose-400"
-                          }`}
+                            }`}
                         >
                           <IconThumbDown className="w-3 h-3" />
                           <span>{t.badFeedback}</span>
@@ -1671,7 +1686,7 @@ export default function UserDashboard() {
 
                         <VoiceAssistant
                           language={language}
-                          onTranscript={() => {}}
+                          onTranscript={() => { }}
                           textToSpeak={msg.content}
                         />
                       </div>
@@ -1680,16 +1695,6 @@ export default function UserDashboard() {
                 </div>
               </div>
             ))}
-
-            {/* LOADING STATE FOR INITIAL LAUNCH */}
-            {loading && messages.length === 0 && (
-              <div className="flex items-center gap-3 text-zinc-400 text-xs font-mono animate-pulse pl-1">
-                <div className="h-6 w-6 rounded-lg bg-[#14141c] border border-[#222230] flex items-center justify-center text-white">
-                  <IconSparkles className="w-3.5 h-3.5 text-zinc-300" />
-                </div>
-                <span>{t.pipelineRunning}</span>
-              </div>
-            )}
 
             {/* ERROR NOTIFICATION */}
             {error && (
@@ -1812,97 +1817,6 @@ export default function UserDashboard() {
           </div>
         </div>
       </div>
-
-      {/* RLHF FEEDBACK TOAST */}
-      {feedbackToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#12121a] border border-emerald-500/40 text-emerald-300 text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-3 duration-300">
-          <IconCheck className="w-4 h-4 text-emerald-400" />
-          <span>{feedbackToast}</span>
-        </div>
-      )}
-
-      {/* RLHF NEGATIVE FEEDBACK MODAL (Like ChatGPT Feedback Modal) */}
-      {negativeFeedbackModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-2xl bg-[#0c0c12] border border-[#222230] p-6 shadow-2xl relative">
-            <button
-              onClick={() => setNegativeFeedbackModal(null)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-[#181824]"
-            >
-              <IconX className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="h-8 w-8 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
-                <IconThumbDown className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-white">{t.feedbackModalTitle}</h3>
-                <p className="text-[11px] text-zinc-400">{t.feedbackModalSubtitle}</p>
-              </div>
-            </div>
-
-            <div className="my-4">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 block">
-                {t.feedbackSelectTags}
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {t.feedbackTags.map((tag) => {
-                  const active = selectedTags.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() =>
-                        setSelectedTags((prev) =>
-                          active ? prev.filter((t) => t !== tag) : [...prev, tag]
-                        )
-                      }
-                      className={`text-xs px-3 py-1.5 rounded-lg border transition ${
-                        active
-                          ? "bg-rose-500/20 text-rose-300 border-rose-500/50"
-                          : "bg-[#14141c] text-zinc-400 border-[#222230] hover:text-zinc-200 hover:border-zinc-600"
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 block">
-                {t.feedbackNotesLabel}
-              </label>
-              <textarea
-                value={feedbackComment}
-                onChange={(e) => setFeedbackComment(e.target.value)}
-                placeholder={t.feedbackNotesPlaceholder}
-                rows={3}
-                className="w-full rounded-xl bg-[#14141c] border border-[#222230] p-3 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 resize-none"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#1c1c28]">
-              <button
-                type="button"
-                onClick={() => setNegativeFeedbackModal(null)}
-                className="px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#181824] transition"
-              >
-                {t.cancelBtn}
-              </button>
-              <button
-                type="button"
-                onClick={submitNegativeFeedback}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-white text-black hover:bg-zinc-200 transition shadow-sm"
-              >
-                {t.submitFeedbackBtn}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* CITATION DOCUMENT INSPECTOR MODAL */}
       <CitationViewerModal

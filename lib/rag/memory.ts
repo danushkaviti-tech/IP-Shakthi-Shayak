@@ -53,9 +53,15 @@ export async function updateUserLongTermMemory(
     const db = client.db("ip-sakti");
     const col = db.collection<UserMemoryProfile>("user_memories");
 
-    const extractedDomain = classification?.ipType && classification.ipType !== "Unknown" ? classification.ipType : "Intellectual Property";
-    const extractedJurisdiction = classification?.jurisdiction && classification.jurisdiction !== "Unknown" ? classification.jurisdiction : "India";
-    
+    const extractedDomain =
+      classification?.ipType && classification.ipType !== "Unknown"
+        ? classification.ipType
+        : "Intellectual Property";
+    const extractedJurisdiction =
+      classification?.jurisdiction && classification.jurisdiction !== "Unknown"
+        ? classification.jurisdiction
+        : "India";
+
     // Clean topic snippet from question
     const topicSnippet = question.length > 80 ? question.slice(0, 80) + "..." : question;
 
@@ -80,7 +86,21 @@ export async function updateUserLongTermMemory(
 }
 
 /**
- * Format Short-term session dialog turns and Long-term user memories for prompt injection.
+ * Sanitize assistant responses to prevent prompt echoing and recursive loops.
+ */
+function cleanMessageContent(rawContent: string): string {
+  if (!rawContent) return "";
+  return rawContent
+    .replace(/\[LONG-TERM USER MEMORY[\s\S]*?\[SHORT-TERM CONVERSATION HISTORY[\s\S]*?\n\n/gi, "")
+    .replace(/\[LONG-TERM USER MEMORY[\s\S]*?\n\n/gi, "")
+    .replace(/\[SHORT-TERM CONVERSATION HISTORY[\s\S]*?\n\n/gi, "")
+    .replace(/### IP-SAKTI Sahayak Legal Guidance[\s\S]*?\n\n/gi, "")
+    .replace(/Inquiry:.*?\n/gi, "")
+    .trim();
+}
+
+/**
+ * Format Short-term session dialog turns and Long-term user memories as read-only background context.
  */
 export function formatMemoryContext(
   shortTermHistory: ConversationTurn[] = [],
@@ -88,28 +108,42 @@ export function formatMemoryContext(
 ): string {
   const sections: string[] = [];
 
-  // 1. Long-Term Memory Section (Cross-Session Persona & Interests)
+  // 1. Long-Term Preferences (Facts Only)
   if (longTermProfile) {
     const domains = (longTermProfile.keyDomains || []).slice(-4).join(", ");
-    const topics = (longTermProfile.recentTopics || []).slice(-3).map((t) => `• ${t}`).join("\n");
-    sections.push(`[LONG-TERM USER MEMORY & PREFERENCES]
+    const topics = (longTermProfile.recentTopics || [])
+      .slice(-3)
+      .map((t) => cleanMessageContent(t))
+      .filter(Boolean)
+      .map((t) => `• ${t}`)
+      .join("\n");
+
+    sections.push(`User Background Preferences:
 - Preferred Language: ${longTermProfile.preferences?.language || "English"}
-- Key IP Domains of Interest: ${domains || "Patent & TKDL Regulatory"}
-- Prior Consultations Context:
-${topics || "General Indian & International IP inquiries"}`);
+- Focus Domains: ${domains || "Patent & Regulatory Guidance"}
+${topics ? `- Recent Focus Areas:\n${topics}` : ""}`);
   }
 
-  // 2. Short-Term Active Session Memory (Previous Dialog Turns)
+  // 2. Short-Term Dialog Context (Cleaned & Wrapped)
   if (shortTermHistory.length > 0) {
-    const recentTurns = shortTermHistory.slice(-6).map((turn) => {
-      const speaker = turn.role === "user" ? "User" : "IP-SAKTI Assistant";
-      const snippet = turn.content.length > 350 ? turn.content.slice(0, 350) + "..." : turn.content;
-      return `${speaker}: ${snippet}`;
-    }).join("\n");
+    const recentTurns = shortTermHistory
+      .slice(-4)
+      .map((turn) => {
+        const cleaned = cleanMessageContent(turn.content);
+        if (!cleaned) return null;
+        const speaker = turn.role === "user" ? "User Inquiry" : "Prior Assistant Summary";
+        const snippet = cleaned.length > 200 ? cleaned.slice(0, 200) + "..." : cleaned;
+        return `${speaker}: ${snippet}`;
+      })
+      .filter(Boolean)
+      .join("\n");
 
-    sections.push(`[SHORT-TERM CONVERSATION HISTORY (Active Session)]
-${recentTurns}`);
+    if (recentTurns) {
+      sections.push(`Prior Turn Context (Reference Only - Do Not Quote Or Output):\n${recentTurns}`);
+    }
   }
 
-  return sections.join("\n\n");
+  if (sections.length === 0) return "";
+
+  return `<background_context>\n${sections.join("\n\n")}\n</background_context>`;
 }
