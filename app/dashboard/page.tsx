@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import VoiceAssistant from "@/src/components/VoiceAssistant";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import CitationViewerModal, { CitationData } from "@/src/components/CitationViewerModal";
@@ -1463,7 +1464,13 @@ export default function UserDashboard() {
                             <span className="font-medium text-zinc-300">{t.realtimeWritingBanner}</span>
                           </div>
                         )}
-                        <span className="text-zinc-100">{msg.content}</span>
+                        {msg.role === "assistant" ? (
+                          <div className="prose prose-invert max-w-none text-zinc-100 text-sm leading-relaxed space-y-2.5 font-normal">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          <span className="text-zinc-100">{msg.content}</span>
+                        )}
                         {loading && index === messages.length - 1 && (
                           <span className="writing-cursor" />
                         )}
