@@ -1,0 +1,20 @@
+THE TRADE MARKS ACT, 1999 (INDIA) — SECTION 29 INFRINGEMENT & PASSING OFF
+Statutory Infringement vs Common Law Tort of Passing Off, Remedies and Deceptive Similarity.
+
+1. Statutory Trademark Infringement (Section 29):
+A registered trade mark is infringed by a person who, not being a registered proprietor or a person using by way of permitted use, uses in the course of trade:
+- Section 29(1): A mark identical with or deceptively similar to the registered mark in relation to goods or services for which the trade mark is registered.
+- Section 29(2): A mark identical or similar in relation to similar goods/services creating likelihood of confusion on the part of the public.
+- Section 29(4) (Dilution): A mark identical or similar to a registered mark having a reputation in India used for dissimilar goods/services where such use takes unfair advantage of or is detrimental to the distinctive character or repute of the registered mark.
+- Section 29(8): Use in comparative advertising that is misleading, takes unfair advantage of, or is detrimental to distinctive character or repute of the trademark.
+
+2. Common Law Action for Passing Off (Section 27(2)):
+- Unlike infringement (which requires a registered trademark), Passing Off is a common law action based on tort protecting unregistered marks, goodwill, and trade names against deceptive misrepresentation.
+- The "Classical Trinity" Test for Passing Off (Reckitt & Colman Products Ltd. v. Borden Inc., approved by Supreme Court in Cadila Healthcare v. Cadila Pharmaceuticals):
+  1. Goodwill & Reputation: The plaintiff must establish goodwill or reputation attached to their goods or services.
+  2. Misrepresentation: The defendant makes a representation to the public leading or likely to lead the public to believe that goods/services offered are those of the plaintiff.
+  3. Damage: Likelihood of actual financial loss or damage to plaintiff's commercial goodwill.
+
+3. Civil & Criminal Statutory Remedies:
+- Civil Remedies (Section 135): Temporary / permanent injunctions, Anton Piller orders (search and seizure), damages or account of profits, and destruction of infringing goods and packaging.
+- Criminal Remedies (Sections 103, 104): False application of trademark is punishable with imprisonment from 6 months up to 3 years and a fine of Rs. 50,000 up to Rs. 2,00,000.

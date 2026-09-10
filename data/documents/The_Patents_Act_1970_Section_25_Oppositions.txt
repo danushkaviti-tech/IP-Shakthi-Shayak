@@ -1,0 +1,25 @@
+THE PATENTS ACT, 1970 (INDIA) — SECTION 25: PRE-GRANT & POST-GRANT OPPOSITIONS
+Statutory Framework for Opposing Patent Applications and Granted Patents.
+
+1. Pre-Grant Opposition (Section 25(1) & Rule 55):
+- Who can file: "Any person" (no need to establish commercial or proprietary interest).
+- Window to file: From the date of publication of the application under Section 11A until the date of grant of patent under Section 43.
+- Mode: Representation by way of opposition in writing, supported by documentary evidence, filed before the Controller of Patents.
+- Grounds (Section 25(1)(a)-(k)):
+  a. Wrongful obtaining of invention from opponent.
+  b. Prior publication in India or abroad prior to priority date.
+  c. Prior claiming in an earlier Indian patent application.
+  d. Prior public knowledge or prior public use in India.
+  e. Obviousness and lack of inventive step over cited prior art.
+  f. Subject matter is not an invention or falls under Section 3 or Section 4 exclusions.
+  g. Insufficient or unclear description of invention in specification.
+  h. Failure to disclose or falsely filing foreign application details under Section 8.
+  i. Failure to file complete specification within 12 months in convention application.
+  j. Non-disclosure or wrongful mention of geographical origin of biological material.
+  k. Anticipation by traditional knowledge (oral or written) anywhere in the world.
+
+2. Post-Grant Opposition (Section 25(2) & Rules 55A to 63):
+- Who can file: Only a "Person Interested" (a person engaged in, or in promoting research in, the same field to which the invention relates).
+- Window to file: Within ONE YEAR from the date of publication of the grant of patent in the Official Patent Journal.
+- Procedure: Notice of opposition on Form 7 with written statement and evidence; constitution of Opposition Board by Controller; recommendation by Board; hearing before Controller.
+- Grounds: Identical statutory grounds to Section 25(1)(a)-(k).

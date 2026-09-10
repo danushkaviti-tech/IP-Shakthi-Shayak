@@ -1,0 +1,19 @@
+THE PATENTS ACT, 1970 & PATENT RULES, 2003 (INDIA) — FILING PROCEDURES & STATUTORY FORMS
+Official Application Forms, Deadlines, Specification Requirements and Working Statements.
+
+1. Essential Patent Application Forms:
+- Form 1: Application for Grant of Patent (Applicant details, inventor details, priority claims, category — Natural Person, Startup, Small Entity, Others).
+- Form 2: Provisional or Complete Specification (Title, Preamble, Background, Summary, Detailed Description with Drawings, Claims [for Complete Specification], Abstract).
+  - A Provisional Specification establishes a priority date. The Complete Specification must be filed within 12 months (non-extendable) under Section 9(1).
+- Form 3: Statement and Undertaking under Section 8 and Rule 12 (Mandatory disclosure of corresponding foreign patent applications; must be updated within 6 months of filing or FER).
+- Form 5: Declaration as to Inventorship (Submitted with Complete Specification).
+- Form 9: Request for Early Publication under Section 11A(2) (Published within 1 month instead of statutory 18 months).
+- Form 18: Request for Examination of Application for Patent (Filed under Section 11B within 48 months from priority date, or 31 months under revised 2024 rules).
+- Form 18A: Request for Expedited Examination (Available for Startups, Women inventors, Small Entities, Government departments, Patent Prosecution Highway / PPH).
+- Form 27: Statement regarding the Working of Patented Invention on commercial scale in India under Section 146(2) and Rule 131 (Submitted once every 3 financial years starting from year of grant).
+
+2. Specification & Claims Drafting (Section 10):
+- Independent Claims: Set forth the essential novel combination of features defining the scope of protection.
+- Dependent Claims: Narrow down specific embodiments, materials, operating parameters, and fallback positions.
+- Structure of Claims: Preamble, Transitional phrase ("comprising" [open-ended] vs "consisting of" [closed]), Body (elements and their functional interrelationships).
+- Clarity & Sufficiency: Must disclose best method of performing the invention known to the applicant under Section 10(4).

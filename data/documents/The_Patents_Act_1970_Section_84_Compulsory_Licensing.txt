@@ -1,0 +1,19 @@
+THE PATENTS ACT, 1970 (INDIA) — SECTION 84 & COMPULSORY LICENSING
+Statutory Provisions, Grounds, Conditions and Landmark Precedents.
+
+1. Application for Compulsory License (Section 84(1)):
+At any time after the expiration of THREE (3) YEARS from the date of the grant of a patent, any person interested may make an application to the Controller for grant of a compulsory licence on patent on any of the following three grounds:
+- Ground (a): Reasonable requirements of the public with respect to the patented invention have not been satisfied.
+- Ground (b): Patented invention is not available to the public at a reasonably affordable price.
+- Ground (c): Patented invention is not worked in the territory of India.
+
+2. Settlement & Reasonable Efforts (Section 84(6)):
+- The applicant must have made efforts to obtain a voluntary license from the patentee on reasonable terms and conditions, and such efforts have not succeeded within a reasonable period (normally not exceeding 6 months).
+
+3. Landmark Precedent — Natco Pharma Ltd. v. Bayer Corporation (2012):
+- First compulsory license granted in India regarding Bayer's kidney and liver cancer drug Sorafenib Tosylate (Nexavar).
+- Bayer sold a monthly dosage of Nexavar at ~Rs. 2,80,000 (~$3,500), reaching less than 2% of eligible Indian patients. Natco offered the generic equivalent at ~Rs. 8,800/month (~$110).
+- Controller General granted the compulsory license under Section 84, ordering Natco to pay a 6% royalty on net sales to Bayer, holding that imported supply in negligible volume does not satisfy the "working in India" and "reasonably affordable price" statutory mandates.
+
+4. Compulsory Licenses on Notification by Central Government (Section 92):
+- In circumstances of national emergency, extreme urgency, or in case of public non-commercial use (e.g. pandemic outbreak), the Central Government may issue an official notification, whereupon any person can immediately apply for a compulsory license without prior 3-year waiting or voluntary negotiation requirements.

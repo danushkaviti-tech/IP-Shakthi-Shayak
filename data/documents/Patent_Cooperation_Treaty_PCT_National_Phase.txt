@@ -1,0 +1,27 @@
+PATENT COOPERATION TREATY (PCT) & INDIAN NATIONAL PHASE FILINGS
+International Application Architecture, Timelines, and Chapter III of Indian Patent Rules.
+
+1. The PCT System (Administered by WIPO):
+The Patent Cooperation Treaty (PCT) enables an applicant to seek patent protection for an invention simultaneously in over 155 contracting member states by filing a single "international patent application."
+
+2. Standard PCT International Timeline:
+- Month 0: Priority Date (Initial domestic filing in national patent office).
+- Month 12: End of Paris Convention priority window — Deadline to file PCT International Application with Receiving Office (RO/IN or RO/IB).
+- Month 16: International Search Report (ISR) and Written Opinion (WO-ISA) established by International Searching Authority (ISA).
+- Month 18: International Publication of PCT application by WIPO International Bureau (IB).
+- Month 19-22: Optional Supplementary International Search (SIS) or International Preliminary Examination (Chapter II / Form PCT/IPEA/401).
+- Month 30/31: Deadline for National Phase Entry into individual designated member states.
+
+3. Indian National Phase Entry Requirements (Rule 20, Patent Rules 2003):
+- Non-Extendable Deadline: 31 MONTHS from the earliest priority date.
+- Documents Required:
+  a. Complete specification in English, including description, claims, abstract, and drawings.
+  b. Form 1 (Application for Grant of Patent) and Form 2 (Specification).
+  c. Form 3 (Statement and Undertaking under Section 8).
+  d. Form 5 (Declaration as to Inventorship).
+  e. Verified English translation if the international application was published in a non-English language.
+  f. Certified copy of priority document with English translation (if not submitted to WIPO during international phase).
+  g. Power of Attorney (Form 26).
+
+4. Calculation of 20-Year Patent Term:
+- Under Section 53(1) of the Patents Act, 1970, the 20-year term of an Indian patent granted on a PCT National Phase application is calculated strictly from the International PCT Filing Date, NOT the Indian National Phase entry date.

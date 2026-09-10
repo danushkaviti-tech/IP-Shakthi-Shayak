@@ -1,0 +1,29 @@
+THE COPYRIGHT ACT, 1957 (INDIA) — BUNDLE OF RIGHTS, FIRST OWNERSHIP & SECTION 57 MORAL RIGHTS
+Scope of Copyright, Economic Rights, Ownership Rules and Inalienable Moral Rights.
+
+1. Subsistence of Copyright (Section 13):
+Copyright subsists throughout India in:
+- (a) Original literary, dramatic, musical and artistic works (including software source code and databases);
+- (b) Cinematograph films;
+- (c) Sound recordings.
+*Note: Copyright protects the original EXPRESSION of an idea, not the idea itself (Idea-Expression Dichotomy; R.G. Anand v. Delux Films, 1978).*
+
+2. Economic Bundle of Exclusive Rights (Section 14):
+The owner has the exclusive right to do or authorize:
+- Literary, Artistic, Dramatic works: Reproduction in any material form, issuing copies to the public, public performance/communication, translation, and adaptation.
+- Computer Programs (Software): All above rights + right to sell or give on commercial rental or offer for sale/hire any copy of the software.
+
+3. First Owner of Copyright (Section 17):
+- General Rule: The author (creator) is the first owner of copyright.
+- Contract of Service / Employment (Section 17(c)): In the case of a work made in the course of the author's employment under a contract of service or apprenticeship, the EMPLOYER shall, in the absence of any contract to the contrary, be the first owner of the copyright.
+- Commissioned Works: For photographs, portraits, or cinematograph films made for valuable consideration at the instance of any person, that person is the first owner (unless agreed otherwise).
+
+4. Author's Moral / Special Rights (Section 57):
+Independently of the author's economic copyright and even after the assignment either wholly or partially of the said copyright, the author shall have the right:
+- (a) Paternity Right (Attribution): To claim authorship of the work.
+- (b) Integrity Right: To restrain or claim damages in respect of any distortion, mutilation, modification or other act in relation to the said work if such act would be prejudicial to the author's honour or reputation.
+- Landmark Precedent: In Amar Nath Sehgal v. Union of India (2005), the Delhi High Court held that moral rights are perpetual, inalienable, and survive assignment of copyright.
+
+5. Term of Protection (Section 22):
+- Literary, dramatic, musical and artistic works: Lifetime of the author PLUS SIXTY (60) YEARS counted from the beginning of the calendar year following the year in which the author dies.
+- Cinematograph films, sound recordings, government works, anonymous works: 60 years from publication.

@@ -1,0 +1,17 @@
+THE PATENTS ACT, 1970 (INDIA) — SECTION 3(d)
+Statutory Subject Matter: What are not inventions — Mere discovery of new form of known substance and therapeutic efficacy requirement.
+
+Section 3(d) of the Indian Patents Act, 1970 explicitly provides that the following are NOT patentable inventions:
+"The mere discovery of a new form of a known substance which does not result in the enhancement of the known efficacy of that substance or the mere discovery of any new property or new use for a known substance or of the mere use of a known process, machine or apparatus unless such known process results in a new product or employs at least one new reactant."
+
+Explanation to Section 3(d):
+For the purposes of this clause, salts, esters, ethers, polymorphs, metabolites, pure form, particle size, isomers, mixtures of isomers, complexes, combinations and other derivatives of known substance shall be considered to be the same substance, unless they differ significantly in properties with regard to efficacy.
+
+Landmark Precedent — Novartis AG v. Union of India (2013) 6 SCC 1 (Supreme Court of India):
+1. In the landmark judgment regarding the beta crystalline form of Imatinib Mesylate (Glivec), the Supreme Court ruled that for pharmaceutical and chemical substances, "efficacy" strictly means "therapeutic efficacy"—the capacity to heal or produce a desired therapeutic effect on human or animal bodies.
+2. Physicochemical advantages, such as enhanced thermodynamic stability, improved flowability, higher hygroscopic resistance, or better bioavailability alone DO NOT qualify as enhanced therapeutic efficacy unless they directly translate into a demonstrated, statistically significant increase in pharmacological therapeutic benefit in clinical/comparative trial data.
+3. Section 3(d) serves as a critical statutory safeguard against "evergreening" of pharmaceutical patents by prohibiting secondary patents on minor incremental modifications or derivative forms without proven superior clinical efficacy.
+
+Practice & Prosecution Standards before the Indian Patent Office (IPO):
+- Applicants claiming a new salt, crystal, polymorph, or formulation of an existing pharmaceutical molecule must submit comparative bio-efficacy experimental data against the known parent compound in the complete specification or in response to the First Examination Report (FER).
+- Mere synergistic claims without comparative pharmacological data against the individual components will attract simultaneous objections under Section 3(d) and Section 3(e).

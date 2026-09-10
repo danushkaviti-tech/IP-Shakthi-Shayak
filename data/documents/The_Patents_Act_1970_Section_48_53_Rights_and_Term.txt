@@ -1,0 +1,20 @@
+THE PATENTS ACT, 1970 (INDIA) — SECTIONS 48, 53 & STATUTORY TERM OF PATENTS
+Exclusive Rights Granted to Patentee, Term of Patent, and Renewal Fee Maintenance.
+
+1. Rights of Patentees (Section 48):
+Subject to other provisions of the Act, a patent granted under this Act confers upon the patentee:
+- Product Patents (Section 48(a)): The exclusive right to prevent third parties who do not have patentee's consent from the act of making, using, offering for sale, selling, or importing for those purposes that product in India.
+- Process Patents (Section 48(b)): The exclusive right to prevent third parties who do not have patentee's consent from the act of using that process, and from using, offering for sale, selling, or importing for those purposes the product obtained directly by that process in India.
+
+2. Term of Patent (Section 53(1)):
+- The term of every patent granted under this Act shall be TWENTY (20) YEARS from the date of filing of application for patent.
+- For international applications filed under Patent Cooperation Treaty (PCT) designating India, the 20-year term is calculated strictly from the International Filing Date (PCT filing date), not the Indian National Phase entry date.
+
+3. Maintenance and Renewal Fees (Section 53(2) & Rule 80):
+- Renewal fees are payable annually starting from the 3rd year onwards to keep the patent in force.
+- If renewal fees are not paid within the prescribed period (or extended 6-month grace period with late fees under Section 142), the patent lapses automatically.
+- Restoration of Lapsed Patents: An application for restoration can be filed under Section 60 within 18 months from the date on which the patent ceased to have effect, demonstrating that the non-payment was unintentional.
+
+4. Statutory Defenses & Safe Harbors:
+- Bolar Exemption (Section 107A(a)): Making, constructing, using, selling or importing a patented invention solely for uses reasonably related to the development and submission of regulatory approval data (e.g. DCGI, US FDA) does not constitute infringement.
+- Exhaustion & Parallel Importation (Section 107A(b)): Importation of patented products by any person from a person who is duly authorised under the law to produce and sell the product is not an infringement.

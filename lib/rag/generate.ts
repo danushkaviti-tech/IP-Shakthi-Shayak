@@ -492,16 +492,155 @@ async function retrieveKnowledgeBase(
   language: string,
   userEmail: string
 ): Promise<{ documents: string[]; metadatas: DocumentMetadata[] }> {
-  const queryWords = question
-    .toLowerCase()
+  const normalizedQuery = question.toLowerCase().replace(/[^\w\s\(\)\-\.]/g, " ").trim();
+  const stopWords = new Set([
+    "what", "is", "the", "are", "for", "and", "under", "in", "of", "to", "how", "can", "tell", "explain",
+    "me", "about", "give", "detailed", "information", "with", "does", "any", "from", "act", "india", "law",
+    "indian", "section", "please", "rules", "provise", "state", "which", "document", "documents", "citians",
+    "prompt", "answers", "same", "fixing", "could", "solve",
+  ]);
+
+  const queryTerms = normalizedQuery
     .split(/\s+/)
-    .filter((w) => w.length > 2)
-    .map((w) => w.replace(/[^\w]/g, ""));
+    .filter((w) => w.length >= 2 && !stopWords.has(w));
 
   const candidateChunks: CandidateChunk[] = [];
   let orderCounter = 0;
 
-  // 1. Fetch from MongoDB 'documents' collection
+  // 1. Fetch from Statutory Knowledge registry first (Highest Authority & Precision)
+  try {
+    const localized = getLocalizedStatutoryKnowledge(language, question);
+    for (const item of localized) {
+      let matchScore = 50; // Base score for items pre-filtered by getLocalizedStatutoryKnowledge
+
+      // Check for specific section mentions
+      if (item.sectionCode === "3d" && (normalizedQuery.includes("3(d)") || normalizedQuery.includes("3d") || normalizedQuery.includes("novartis") || normalizedQuery.includes("therapeutic efficacy") || normalizedQuery.includes("evergreening"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "3k" && (normalizedQuery.includes("3(k)") || normalizedQuery.includes("3k") || normalizedQuery.includes("software") || normalizedQuery.includes("algorithm") || normalizedQuery.includes("cri"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "3p" && (normalizedQuery.includes("3(p)") || normalizedQuery.includes("3p") || normalizedQuery.includes("traditional knowledge") || normalizedQuery.includes("ayurved"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "9" && (normalizedQuery.includes("section 9") || normalizedQuery.includes("absolute grounds") || normalizedQuery.includes("distinctiveness"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "11" && (normalizedQuery.includes("section 11") || normalizedQuery.includes("section 21") || normalizedQuery.includes("tm-o") || normalizedQuery.includes("opposition"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "29" && (normalizedQuery.includes("section 29") || normalizedQuery.includes("infringement") || normalizedQuery.includes("passing off"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "52" && (normalizedQuery.includes("section 52") || normalizedQuery.includes("fair dealing") || normalizedQuery.includes("fair use"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "25" && (normalizedQuery.includes("section 25") || normalizedQuery.includes("pre-grant") || normalizedQuery.includes("post-grant"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "48" && (normalizedQuery.includes("section 48") || normalizedQuery.includes("section 53") || normalizedQuery.includes("20 years"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "84" && (normalizedQuery.includes("section 84") || normalizedQuery.includes("compulsory licen") || normalizedQuery.includes("natco"))) {
+        matchScore += 80;
+      } else if (item.sectionCode === "nba" && (normalizedQuery.includes("nba") || normalizedQuery.includes("biodiversity"))) {
+        matchScore += 80;
+      }
+
+      candidateChunks.push({
+        document: item.document,
+        source: item.source,
+        content: item.content,
+        section: item.section,
+        page: item.page,
+        jurisdiction: item.jurisdiction,
+        ipType: item.ipType,
+        productType: item.productType,
+        highlight: item.highlight,
+        score: matchScore,
+        order: orderCounter++,
+      });
+    }
+  } catch (statutoryErr) {
+    console.warn("Statutory retrieval error:", statutoryErr);
+  }
+
+  // 2. Fetch from local data/documents directory
+  try {
+    const docsDir = path.join(process.cwd(), "data", "documents");
+    const files = await fs.readdir(docsDir).catch(() => [] as string[]);
+
+    for (const file of files) {
+      if (!file.endsWith(".txt")) continue;
+      try {
+        const fileContent = await fs.readFile(path.join(docsDir, file), "utf-8");
+        const paragraphs = fileContent.split(/\n\n+/).filter((p: string) => p.trim().length > 30);
+        const docTitle = file.replace(/_/g, " ").replace(/\.txt$/i, "");
+        const lowerDocTitle = docTitle.toLowerCase();
+
+        paragraphs.forEach((p: string, pIdx: number) => {
+          const cleanP = p.trim();
+          const lowerP = cleanP.toLowerCase();
+          let matchScore = 0;
+
+          // Section specific boosts
+          if (file.includes("3d") && (normalizedQuery.includes("3(d)") || normalizedQuery.includes("3d") || normalizedQuery.includes("novartis") || normalizedQuery.includes("efficacy"))) {
+            matchScore += 70;
+          }
+          if (file.includes("3k") && (normalizedQuery.includes("3(k)") || normalizedQuery.includes("3k") || normalizedQuery.includes("software") || normalizedQuery.includes("algorithm"))) {
+            matchScore += 70;
+          }
+          if (file.includes("3p") && (normalizedQuery.includes("3(p)") || normalizedQuery.includes("3p") || normalizedQuery.includes("traditional knowledge"))) {
+            matchScore += 70;
+          }
+          if (file.includes("Section_9") && (normalizedQuery.includes("section 9") || normalizedQuery.includes("absolute grounds") || normalizedQuery.includes("distinctiveness"))) {
+            matchScore += 70;
+          }
+          if (file.includes("Section_11") && (normalizedQuery.includes("section 11") || normalizedQuery.includes("section 21") || normalizedQuery.includes("tm-o"))) {
+            matchScore += 70;
+          }
+          if (file.includes("Section_52") && (normalizedQuery.includes("section 52") || normalizedQuery.includes("fair dealing") || normalizedQuery.includes("fair use"))) {
+            matchScore += 70;
+          }
+
+          // Keyword matches
+          for (const term of queryTerms) {
+            if (lowerP.includes(term)) matchScore += 10;
+            if (lowerDocTitle.includes(term)) matchScore += 15;
+          }
+
+          // Penalize section 3p if query asks for 3d or 3k
+          if (file.includes("3p") && (normalizedQuery.includes("3(d)") || normalizedQuery.includes("3d") || normalizedQuery.includes("3(k)") || normalizedQuery.includes("3k") || normalizedQuery.includes("novartis"))) {
+            matchScore -= 80;
+          }
+
+          if (matchScore >= 25) {
+            const sentences = cleanP.match(/[^.!?\n]+[.!?]/g) || [cleanP];
+            let bestSentence = sentences[0] || cleanP.slice(0, 200);
+            let bestSentenceScore = -1;
+            for (const s of sentences) {
+              const lowerS = s.toLowerCase();
+              let sScore = 0;
+              for (const term of queryTerms) {
+                if (lowerS.includes(term)) sScore++;
+              }
+              if (sScore > bestSentenceScore) {
+                bestSentenceScore = sScore;
+                bestSentence = s.trim();
+              }
+            }
+
+            candidateChunks.push({
+              document: file,
+              source: docTitle,
+              content: cleanP,
+              section: `${docTitle} • Section ${pIdx + 1}`,
+              page: `Clause ${pIdx + 1}`,
+              jurisdiction: "India",
+              ipType: "Statutory Law",
+              productType: "Official Statutory Act",
+              highlight: bestSentence.slice(0, 250),
+              score: matchScore,
+              order: orderCounter++,
+            });
+          }
+        });
+      } catch {}
+    }
+  } catch {}
+
+  // 3. Fetch from MongoDB 'documents' collection if available
   try {
     const client = await clientPromise;
     const db = client.db("ip-sakti");
@@ -520,33 +659,22 @@ async function retrieveKnowledgeBase(
       if (!text || text.trim().length < 20) continue;
 
       const docName = doc.name || doc.originalName || "Knowledge Document";
-      const paragraphs = text.split(/\n\n+/).filter((p: string) => p.trim().length > 20);
+      const lowerDocName = docName.toLowerCase();
+      const paragraphs = text.split(/\n\n+/).filter((p: string) => p.trim().length > 30);
 
       paragraphs.forEach((p: string, pIdx: number) => {
         const cleanP = p.trim();
         const lowerP = cleanP.toLowerCase();
         let matchScore = 0;
 
-        for (const w of queryWords) {
-          if (lowerP.includes(w)) matchScore += 10;
-          if (docName.toLowerCase().includes(w)) matchScore += 15;
+        for (const term of queryTerms) {
+          if (lowerP.includes(term)) matchScore += 10;
+          if (lowerDocName.includes(term)) matchScore += 15;
         }
 
-        if (matchScore > 0) {
+        if (matchScore >= 30) {
           const sentences = cleanP.match(/[^.!?\n]+[.!?]/g) || [cleanP];
-          let bestSentence = sentences[0] || cleanP.slice(0, 200);
-          let bestSentenceScore = -1;
-          for (const s of sentences) {
-            const lowerS = s.toLowerCase();
-            let sScore = 0;
-            for (const w of queryWords) {
-              if (lowerS.includes(w)) sScore++;
-            }
-            if (sScore > bestSentenceScore) {
-              bestSentenceScore = sScore;
-              bestSentence = s.trim();
-            }
-          }
+          const bestSentence = sentences[0] || cleanP.slice(0, 200);
 
           candidateChunks.push({
             document: docName,
@@ -568,94 +696,49 @@ async function retrieveKnowledgeBase(
     console.warn("MongoDB retrieval warning:", mongoErr);
   }
 
-  // 2. Fetch from local data/documents directory
+  // 4. Try Chroma DB embeddings if available
   try {
-    const docsDir = path.join(process.cwd(), "data", "documents");
-    const files = await fs.readdir(docsDir).catch(() => [] as string[]);
+    const semanticResults = await searchKnowledge(question, 4);
+    const semanticDocuments = semanticResults.documents?.[0] || [];
+    const semanticMetadatas = semanticResults.metadatas?.[0] || [];
+    const semanticDistances = semanticResults.distances?.[0] || [];
 
-    for (const file of files) {
-      if (!file.endsWith(".txt")) continue;
-      try {
-        const content = await fs.readFile(path.join(docsDir, file), "utf-8");
-        const paragraphs = content.split(/\n\n+/).filter((p: string) => p.trim().length > 20);
-        const docTitle = file.replace(/_/g, " ").replace(/\.txt$/i, "");
+    semanticDocuments.forEach((content, index) => {
+      if (!content || content.trim().length < 20) return;
+      const metadata = (semanticMetadatas[index] || {}) as DocumentMetadata;
+      const distance = Number(semanticDistances[index]);
+      const semanticScore = Number.isFinite(distance) ? Math.max(1, 100 - distance * 100) : 50;
 
-        paragraphs.forEach((p: string, pIdx: number) => {
-          const cleanP = p.trim();
-          const lowerP = cleanP.toLowerCase();
-          let matchScore = 0;
-
-          for (const w of queryWords) {
-            if (lowerP.includes(w)) matchScore += 10;
-            if (docTitle.toLowerCase().includes(w)) matchScore += 12;
-          }
-
-          if (matchScore > 0) {
-            const sentences = cleanP.match(/[^.!?\n]+[.!?]/g) || [cleanP];
-            let bestSentence = sentences[0] || cleanP.slice(0, 200);
-            let bestSentenceScore = -1;
-            for (const s of sentences) {
-              const lowerS = s.toLowerCase();
-              let sScore = 0;
-              for (const w of queryWords) {
-                if (lowerS.includes(w)) sScore++;
-              }
-              if (sScore > bestSentenceScore) {
-                bestSentenceScore = sScore;
-                bestSentence = s.trim();
-              }
-            }
-
-            candidateChunks.push({
-              document: file,
-              source: docTitle,
-              content: cleanP,
-              section: `${docTitle} • Clause ${pIdx + 1}`,
-              page: `Section ${pIdx + 1}`,
-              jurisdiction: "India",
-              ipType: "Statutory Law",
-              productType: "Statutory Document",
-              highlight: bestSentence.slice(0, 250),
-              score: matchScore,
-              order: orderCounter++,
-            });
-          }
+      if (semanticScore >= 40) {
+        candidateChunks.push({
+          document: String(metadata.document || metadata.source || `Semantic Source ${index + 1}`),
+          source: String(metadata.source || metadata.document || `Semantic Source ${index + 1}`),
+          content,
+          section: String(metadata.section || "Relevant knowledge excerpt"),
+          page: String(metadata.page || "Knowledge Base"),
+          jurisdiction: String(metadata.jurisdiction || "India"),
+          ipType: String(metadata.ipType || "Intellectual Property"),
+          productType: String(metadata.productType || "Knowledge Base Document"),
+          highlight: String(metadata.highlight || content.slice(0, 250)),
+          score: semanticScore,
+          order: orderCounter++,
         });
-      } catch {}
-    }
-  } catch {}
-
-  // 3. Fetch from Statutory Knowledge registry
-  try {
-    const localized = getLocalizedStatutoryKnowledge(language, question);
-    for (const item of localized) {
-      const lowerContent = item.content.toLowerCase();
-      let matchScore = 5;
-      for (const w of queryWords) {
-        if (lowerContent.includes(w)) matchScore += 10;
-        if (item.document.toLowerCase().includes(w)) matchScore += 12;
       }
+    });
+  } catch (semanticErr) {
+    // Chroma may not be running in serverless Vercel environment
+  }
 
-      candidateChunks.push({
-        document: item.document,
-        source: item.source,
-        content: item.content,
-        section: item.section,
-        page: item.page,
-        jurisdiction: item.jurisdiction,
-        ipType: item.ipType,
-        productType: item.productType,
-        highlight: item.highlight,
-        score: matchScore,
-        order: orderCounter++,
-      });
-    }
-  } catch {}
-
-  // Filter and pick top relevant candidates
+  // Sort candidates by highest relevance score
   const scored = candidateChunks.sort((a, b) => b.score - a.score);
-  // Pick top 4 relevant chunks
-  const topChunks = scored.slice(0, 4);
+
+  // Deduplicate and take top relevant chunks (only those meeting confidence threshold >= 30)
+  const topChunks = scored
+    .filter((chunk) => chunk.score >= 30)
+    .filter((chunk, index, all) => all.findIndex((candidate) =>
+      candidate.document === chunk.document && candidate.content.slice(0, 100) === chunk.content.slice(0, 100)
+    ) === index)
+    .slice(0, 4);
 
   const documents: string[] = [];
   const metadatas: DocumentMetadata[] = [];

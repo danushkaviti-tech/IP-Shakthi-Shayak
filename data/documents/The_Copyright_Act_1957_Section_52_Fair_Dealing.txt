@@ -1,0 +1,28 @@
+THE COPYRIGHT ACT, 1957 (INDIA) — SECTION 52: FAIR DEALING & STATUTORY EXEMPTIONS
+Permissible Acts Not Constituting Infringement of Copyright.
+
+Section 52 of the Indian Copyright Act, 1957 lays down an exhaustive list of acts that DO NOT constitute copyright infringement:
+
+1. Fair Dealing (Section 52(1)(a)):
+A fair dealing with any work (not being a computer program) for the purposes of:
+- (i) Private or personal use, including research;
+- (ii) Criticism or review, whether of that work or of any other work;
+- (iii) The reporting of current events and current affairs, including the reporting of a lecture delivered in public.
+
+2. Educational and Academic Use (Section 52(1)(i) & (h)):
+- Reproduction of any work by a teacher or a pupil in the course of instruction or as part of questions to be answered in an examination, or in answers to such questions.
+- Landmark Precedent — The Chancellor, Masters and Scholars of University of Oxford v. Rameshwari Photocopy Services (Delhi High Court, 2016):
+  The High Court ruled that making photocopied course packs of academic books for students enrolled in educational courses falls strictly within Section 52(1)(i) and does not constitute copyright infringement, emphasizing education access as a fundamental public interest.
+
+3. Software & Computer Programs Exceptions (Section 52(1)(aa), (ab), (ac), (ad)):
+- Making copies or adaptation of a computer programme by the lawful possessor in order to:
+  a. Utilize the computer programme for the purposes for which it was supplied;
+  b. Make back-up copies purely as a temporary protection against loss, destruction or damage.
+- Reverse engineering or decompilation of lawfully obtained copies of a computer program for the sole purpose of achieving interoperability with other independently created computer programs.
+- Observation, study or testing of the functioning of the computer program in order to determine the ideas and principles which underlie any elements of the program.
+
+4. Judicial and Legislative Proceedings (Section 52(1)(c), (d)):
+- Reproduction of any work for the purpose of a judicial proceeding or for the purpose of a report of a judicial proceeding, or by the Secretariat of a Legislature.
+
+5. Persons with Disabilities (Section 52(1)(zb)):
+- Conversion, reproduction, or distribution of any work in accessible formats (e.g. Braille, audiobooks) for the benefit of persons with visual impairment or other disabilities on a non-profit basis.

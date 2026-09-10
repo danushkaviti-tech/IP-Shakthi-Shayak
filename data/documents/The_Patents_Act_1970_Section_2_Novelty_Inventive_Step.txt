@@ -1,0 +1,20 @@
+THE PATENTS ACT, 1970 (INDIA) — SECTION 2(1)(j), 2(1)(ja) & NOVELTY STANDARDS
+Statutory Criteria for Patentability: Novelty, Inventive Step, and Industrial Applicability.
+
+1. Definition of Invention (Section 2(1)(j)):
+"Invention means a new product or process involving an inventive step and capable of industrial application."
+
+2. Novelty Standard (Section 2(1)(l) - "New Invention"):
+- An invention must not have been anticipated by publication in any document anywhere in the world or used in the country or prior public knowledge prior to the date of filing of patent application with complete specification (or priority date).
+- India operates on an absolute global novelty standard (with limited 12-month grace periods under Chapter VI for exhibition at recognized exhibitions or public working solely for reasonable trial).
+
+3. Inventive Step / Non-Obviousness (Section 2(1)(ja)):
+- "Inventive step means a feature of an invention that involves technical advance as compared to the existing knowledge or having economic significance or both and that makes the invention not obvious to a person skilled in the art (PSITA)."
+- Indian courts follow the 5-step test laid down in Biswanath Prasad Radhey Shyam v. Hindustan Metal Industries (1979) and F. Hoffmann-La Roche v. Cipla (2016):
+  a. Identify the inventive concept embodied in the patent.
+  b. Identify the common general knowledge imputed to a Person Skilled in the Art (PSITA) at the priority date.
+  c. Identify differences between cited prior art and the alleged invention.
+  d. View those differences through the eyes of the PSITA to determine whether they constitute steps which would have been obvious without any hindsight analysis.
+
+4. Industrial Applicability (Section 2(1)(ac)):
+- Capable of being made or used in an industry. The invention must have practical utility and tangible real-world application.

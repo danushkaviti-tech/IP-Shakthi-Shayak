@@ -1,0 +1,17 @@
+THE PATENTS ACT, 1970 (INDIA) — SECTION 3(k)
+Statutory Subject Matter: What are not inventions — Computer Programmes per se, Mathematical Methods, Business Methods, and Algorithms.
+
+Section 3(k) of the Indian Patents Act, 1970 states that the following are NOT inventions within the meaning of this Act:
+"A mathematical or business method or a computer programme per se or algorithms."
+
+Guidelines for Examination of Computer-Related Inventions (CRIs), 2017 (Indian Patent Office):
+1. Legislative Intent: The qualifier "per se" in Section 3(k) explicitly indicates that computer programmes when part of a broader technical system or when producing a concrete technical effect are not barred outright.
+2. Technical Effect & Technical Contribution Test:
+   - If a software-implemented invention or Artificial Intelligence (AI) model produces a tangible technical effect or solves a technical problem by improving machine performance, data communication efficiency, image processing hardware, robotic control, cryptography, or electronic system speed, the invention is patentable.
+   - Claims must not be directed purely to abstract mathematical formulations, standalone source code scripts, mental concepts, or business accounting models.
+   - Patent claims must be structured around hardware limitations, showing how the novel method interacts with physical processors, memory units, sensors, or external physical devices.
+3. Delhi High Court Jurisprudence:
+   - In Ferid Allani v. Union of India (2019), the Delhi High Court established that computer-related inventions demonstrating a technical contribution, technical advancement, or technical effect outside of a mere software program per se are patent-eligible under Section 3(k).
+   - In OpenTV Inc. v. Controller of Patents (2023) and Microsoft Technology Licensing LLC (2023), the courts reiterated that digital innovations, cryptographic authentication, and system optimization techniques possessing technical utility are patentable.
+4. Artificial Intelligence (AI) and Machine Learning Inventions:
+   - Inventions utilizing neural networks, reinforcement learning, or transformer architectures must clearly describe the specific technical dataset preprocessing, physical training architecture, and real-world system application (e.g. medical image diagnosis hardware, autonomous vehicle trajectory optimization) rather than claiming the core AI algorithm in the abstract.

@@ -1,0 +1,25 @@
+PROTECTION OF PLANT VARIETIES AND FARMERS' RIGHTS (PPV&FR) ACT, 2001 (INDIA)
+Sui Generis Plant Variety Protection, DUS Criteria, Farmers' Rights, and Benefit Sharing.
+
+1. Legislative Framework:
+India enacted the PPV&FR Act, 2001 as a unique sui generis legislation complying with Article 27.3(b) of the TRIPS Agreement while simultaneously protecting the customary rights of Indian farmers and breeders.
+
+2. Registrable Categories of Plant Varieties (Section 14 & 15):
+- New Varieties: Not in public domain or commercial exploitation in India prior to 1 year before filing.
+- Extant Varieties: Notified under Seeds Act 1966 or farmers' varieties or varieties of common knowledge.
+- Farmers' Varieties: Traditionally cultivated and evolved by farmers in their fields.
+- Essentially Derived Varieties (EDV): Predominantly derived from an initial protected variety while retaining its essential characteristics.
+
+3. DUS Criteria for Registration (Section 15(1)):
+To be eligible for registration, a variety must satisfy four fundamental requirements:
+- Distinctness (D): Clearly distinguishable by at least one essential characteristic from any other variety whose existence is a matter of common knowledge.
+- Uniformity (U): Sufficiently uniform in its relevant characteristics, subject to the variation that may be expected from the particular features of its propagation.
+- Stability (S): Essential characteristics remain unchanged after repeated propagation.
+- Novelty (N): Propagating or harvested material has not been sold or disposed of beyond statutory time limits.
+
+4. Farmers' Rights (Section 39):
+- A farmer is entitled to save, use, sow, re-sow, exchange, share or sell his farm produce including seed of a protected variety, provided that the farmer shall not be entitled to sell branded seed of a protected variety.
+- Farmers are immune from paying any registration, test, or legal fees before the Authority and are protected against innocent infringement (Section 42).
+
+5. Benefit Sharing (Section 26):
+- Tribal and rural communities contributing to genetic resources used in breeding a commercialized protected variety are entitled to statutory benefit sharing funds disbursed by the National Gene Fund.

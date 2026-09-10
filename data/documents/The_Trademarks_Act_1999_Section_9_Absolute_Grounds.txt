@@ -1,0 +1,23 @@
+THE TRADE MARKS ACT, 1999 (INDIA) — SECTION 9: ABSOLUTE GROUNDS FOR REFUSAL
+Statutory Criteria for Refusal of Trademark Registration and Acquired Distinctiveness.
+
+Section 9(1) of the Trade Marks Act, 1999 provides that the following trade marks SHALL NOT be registered:
+- Section 9(1)(a): Trade marks which are devoid of any distinctive character, that is to say, not capable of distinguishing the goods or services of one person from those of another person.
+- Section 9(1)(b): Trade marks which consist exclusively of marks or indications which may serve in trade to designate the kind, quality, quantity, intended purpose, values, geographical origin, or the time of production of the goods or of rendering of the service, or other characteristics of the goods or services (Descriptive marks).
+- Section 9(1)(c): Trade marks which consist exclusively of marks or indications which have become customary in the current language or in the bona fide and established practices of the trade (Generic marks).
+
+Proviso to Section 9(1) — Acquired Distinctiveness / Secondary Meaning:
+A trade mark SHALL NOT be refused registration under Section 9(1) if before the date of application for registration it has in fact acquired a distinctive character as a result of the use made of it or is a well-known trade mark. (Applicants prove this by submitting voluminous user affidavits, annual turnover figures, media advertising invoices, and consumer surveys).
+
+Section 9(2) — Public Policy and Scandalous Prohibitions:
+A mark shall not be registered if:
+- (a) it is of such nature as to deceive the public or cause confusion;
+- (b) it contains or comprises any matter likely to hurt religious susceptibilities of any class or section of the citizens of India;
+- (c) it comprises or contains scandalous or obscene matter;
+- (d) its use is prohibited under the Emblems and Names (Prevention of Improper Use) Act, 1950.
+
+Section 9(3) — Shapes of Goods Prohibitions:
+A mark shall not be registered if it consists exclusively of:
+- (a) the shape of goods which results from the nature of the goods themselves;
+- (b) the shape of goods which is necessary to obtain a technical result;
+- (c) the shape which gives substantial value to the goods.

@@ -1,0 +1,20 @@
+THE PATENTS ACT, 1970 (INDIA) — SECTION 3 (STATUTORY EXCLUSIONS A TO P)
+Statutory Exclusions from Patentability in India:
+
+Under Section 3 of the Patents Act 1970, the following categories are strictly NOT inventions:
+- Section 3(a): Inventions that are frivolous or which claim anything obviously contrary to well-established natural laws (e.g. perpetual motion machines).
+- Section 3(b): Inventions whose primary or intended use or commercial exploitation would be contrary to public order or morality or which cause serious prejudice to human, animal or plant life or health or to the environment (e.g. human cloning, terminator seed technology, gambling devices).
+- Section 3(c): The mere discovery of a scientific principle or the formulation of an abstract theory or discovery of any living thing or non-living substance occurring in nature.
+- Section 3(d): Mere discovery of a new form of known substance without enhanced therapeutic efficacy (Novartis standard), or new use/property of known substances.
+- Section 3(e): A substance obtained by a mere admixture resulting only in the aggregation of the properties of the components thereof or a process for producing such substance (Synergism must be demonstrated with experimental data).
+- Section 3(f): The mere arrangement or re-arrangement or duplication of known devices each functioning independently of one another in a known way.
+- Section 3(h): A method of agriculture or horticulture (e.g. method of soil tilling, crop cultivation).
+- Section 3(i): Any process for the medicinal, surgical, curative, prophylactic, diagnostic, therapeutic or other treatment of human beings or any process for a similar treatment of animals to render them free of disease or to increase their economic value or that of their products.
+- Section 3(j): Plants and animals in whole or any part thereof other than micro-organisms; but including seeds, varieties and species and essentially biological processes for production or propagation of plants and animals (covered separately under PPV&FR Act).
+- Section 3(k): Mathematical or business methods, computer programmes per se or algorithms.
+- Section 3(l): A literary, dramatic, musical or artistic work or any other aesthetic creation whatsoever including cinematographic works and television productions (governed by Copyright Act).
+- Section 3(m): A mere scheme or rule or method of performing mental act or method of playing game.
+- Section 3(n): A presentation of information (e.g. tabular layouts, UI display of text).
+- Section 3(o): Topography of integrated circuits (governed by SICLDA 2000).
+- Section 3(p): An invention which in effect is traditional knowledge or which is an aggregation or duplication of known properties of traditionally known component or components.
+- Section 4: Inventions relating to atomic energy falling within Section 20(1) of Atomic Energy Act, 1962 are non-patentable.

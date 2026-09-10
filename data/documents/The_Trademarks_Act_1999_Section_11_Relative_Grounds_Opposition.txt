@@ -1,0 +1,25 @@
+THE TRADE MARKS ACT, 1999 (INDIA) — SECTION 11, SECTION 21 OPPOSITION & RENEWAL
+Relative Grounds for Refusal, Likelihood of Confusion, Opposition Timeline and 10-Year Term.
+
+1. Relative Grounds for Refusal (Section 11(1)):
+A trade mark shall not be registered if because of:
+- Section 11(1)(a): Its identity with an earlier trade mark and similarity of goods or services covered;
+- Section 11(1)(b): Its similarity to an earlier trade mark and identity or similarity of goods or services, there exists a likelihood of confusion on the part of the public, which includes the likelihood of association with the earlier trade mark.
+
+2. Well-Known Trade Marks (Section 11(2) & Rule 124):
+- A trade mark identical with or similar to an earlier well-known mark in India shall not be registered EVEN FOR DISSIMILAR GOODS OR SERVICES if use of the latter mark without due cause would take unfair advantage of or be detrimental to the distinctive character or repute of the well-known trade mark.
+- Rule 124 of Trade Marks Rules, 2017 allows brand owners to apply for inclusion in the official List of Well-Known Trademarks via Form TM-M with evidence of widespread public recognition.
+
+3. Opposition Proceedings (Section 21 & Rules 42-51):
+- Publication: Once an application is accepted or ordered to be advertised before acceptance, it is published in the official weekly Trade Marks Journal.
+- Strict Deadline: ANY PERSON may file a Notice of Opposition on Form TM-O within FOUR (4) MONTHS from the date of publication. This 4-month deadline is strictly non-extendable by the Registrar.
+- Pleadings & Evidence:
+  a. Applicant files Counter-Statement on Form TM-O within 2 months of receipt of Notice of Opposition (Failure to file results in deemed abandonment of application under Section 21(2)).
+  b. Opponent files Evidence in Support of Opposition under Rule 45 (within 2 months).
+  c. Applicant files Evidence in Support of Application under Rule 46 (within 2 months).
+  d. Opponent files Evidence in Reply under Rule 47 (within 1 month).
+  e. Final oral hearing before the Registrar and issuance of speaking order.
+
+4. Term and Renewal of Trademark (Section 25):
+- Validity: Registered trade mark is valid for TEN (10) YEARS from the date of application.
+- Renewal: Renewable indefinitely for consecutive 10-year periods by filing Form TM-R with the prescribed fee within 1 year before expiry or 6 months after expiry (with surcharge).

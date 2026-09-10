@@ -1,0 +1,20 @@
+MADRID PROTOCOL — INTERNATIONAL REGISTRATION OF MARKS (INDIA)
+WIPO Global Trademark System, Basic Application Requirement, Filing Procedure and 5-Year Dependency.
+
+1. Madrid Protocol Architecture (Administered by WIPO):
+India acceded to the Madrid Protocol concerning the International Registration of Marks in 2013 (governed by Chapter IVA of the Trade Marks Act, 1999 and Rules 67A-67P).
+
+2. How Madrid Protocol Filing Works:
+- Single Application: An Indian applicant can file a single international application in English specifying multiple contracting member jurisdictions (over 130 countries).
+- Office of Origin: Application is filed through the Trade Marks Registry of India (as Office of Origin) on Form MM2 (E-filing via IP India portal).
+- Requirement of Basic Mark: Applicant must have an existing domestic trademark application or registration in India (the "Basic Mark") covering the identical goods/services.
+- Verification & Certification: Indian Registry certifies that the particulars in Form MM2 correspond exactly with the Basic Mark and forwards the application to WIPO International Bureau in Geneva.
+- Examination by Designated Countries: Each designated member state's trademark office examines the mark according to its national laws within 12 to 18 months.
+
+3. The 5-Year Dependency Principle ("Central Attack"):
+- For a period of FIVE (5) YEARS from the date of international registration, the international registration remains strictly dependent on the Basic Mark in India.
+- If the basic Indian application is refused, withdrawn, cancelled, or limited within this 5-year period, the entire international registration in all designated countries ceases to have effect to the same extent.
+- After 5 years, the international registration becomes independent of the basic Indian mark.
+
+4. Subsequent Designation (Form MM4):
+- Brand owners can expand protection to additional countries at any later date by filing a Subsequent Designation without needing a new basic application.
