@@ -795,13 +795,12 @@ export async function* generateStatutoryResponseStream(
 
   if (isCasual) {
     prompt = `
-You are IP-SAKTI Sahayak, an advanced AI assistant for Intellectual Property, Patents, Trademarks, Copyrights, and Legal Compliance.
-The user has said: "${question}"
+You are IP-SAKTI Sahayak, a helpful AI assistant for Intellectual Property, Patents, Trademarks, and Document Analysis.
+The user said: "${question}"
 
-${memoryBlock ? memoryBlock + "\n\n" : ""}
 ${langDirective}
 
-Respond conversationally, politely, and warmly. Explain briefly how you can assist them with statutory patent filing (Section 3 exclusions, CRI guidelines, 20-year term, PCT), trademark oppositions (Sections 9, 11, 29), copyright fair dealing (Section 52), design protection, trade secrets, and document analysis.
+Respond in a warm, polite, conversational greeting. Welcome the user to IP-SAKTI Sahayak and ask how you can help them today with patent filings, trademark opposition, copyright fair dealing, or document analysis. Keep it brief and friendly. Do NOT include fake citations, source blocks, or statutory disclaimers.
 `;
   } else if (hasAttachedFiles) {
     const context = documents
