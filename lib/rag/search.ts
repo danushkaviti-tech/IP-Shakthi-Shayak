@@ -17,8 +17,9 @@ export interface SearchResultItem {
 }
 
 /**
- * Searches ChromaDB vector store and falls back to MongoDB full-text search
- * to guarantee documents stored in database are retrieved.
+ * Searches ChromaDB vector store and MongoDB full-text search concurrently.
+ * This Hybrid approach guarantees exact keywords from DB and semantic matches from Vector DB,
+ * while improving latency by running them in parallel.
  */
 export async function searchKnowledge(
   query: string,
@@ -36,8 +37,13 @@ export async function searchKnowledge(
     distances: [[]],
   };
 
+  const queryTerms = cleanQuery
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !["who", "what", "is", "the", "and"].includes(w));
+
   // 1. Vector Search via ChromaDB
-  try {
+  const chromaPromise = (async () => {
     const embedding = await generateEmbedding(cleanQuery);
     const collection = await getKnowledgeCollection();
 
@@ -49,33 +55,24 @@ export async function searchKnowledge(
       where = conditions.length === 1 ? conditions[0] : { $and: conditions };
     }
 
-    const chromaRes = await collection.query({
+    return collection.query({
       queryEmbeddings: [embedding],
       nResults: topK,
       ...(where ? { where } : {}),
     });
-
-    if (chromaRes?.documents?.[0] && chromaRes.documents[0].length > 0) {
-      return chromaRes;
-    }
-  } catch (chromaError: any) {
-    console.warn("ChromaDB vector search failed or empty, using MongoDB fallback:", chromaError?.message || chromaError);
-  }
+  })();
 
   // 2. Direct MongoDB Ingestion Fallback (Searches uploaded team documents & PDFs)
-  try {
+  const mongoPromise = (async () => {
+    if (queryTerms.length === 0) return [];
+    
     const client = await clientPromise;
     const db = client.db("ip-sakti");
     const collection = db.collection("documents");
 
-    const queryTerms = cleanQuery
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length >= 3 && !["who", "what", "is", "the", "and"].includes(w));
-
     // Search by regex terms on rawText and fileName
     const searchRegexes = queryTerms.map((term) => new RegExp(term, "i"));
-    const mongoDocs = await collection
+    return collection
       .find({
         $or: [
           { rawText: { $in: searchRegexes } },
@@ -85,30 +82,35 @@ export async function searchKnowledge(
       })
       .limit(topK)
       .toArray();
+  })();
 
-    if (mongoDocs && mongoDocs.length > 0) {
-      const docsArr: string[] = [];
-      const metasArr: any[] = [];
-      const distsArr: number[] = [];
+  // Run both concurrently
+  const [chromaResult, mongoResult] = await Promise.allSettled([chromaPromise, mongoPromise]);
 
-      for (const doc of mongoDocs) {
-        const text = (doc.rawText || "").trim();
-        if (!text) continue;
+  const candidateDocs: { doc: string; meta: any; dist: number }[] = [];
 
-        // Extract the most relevant paragraph
-        const paragraphs = text.split(/\n{2,}|\r\n{2,}/).filter((p: string) => p.trim().length > 20);
-        let bestParagraph = paragraphs[0] || text.slice(0, 500);
+  // Add Mongo Results (Exact matches - high priority / low distance)
+  if (mongoResult.status === "fulfilled" && mongoResult.value) {
+    const mongoDocs = mongoResult.value;
+    for (const doc of mongoDocs) {
+      const text = (doc.rawText || "").trim();
+      if (!text) continue;
 
-        for (const p of paragraphs) {
-          const lowerP = p.toLowerCase();
-          if (queryTerms.some((t) => lowerP.includes(t))) {
-            bestParagraph = p.trim();
-            break;
-          }
+      // Extract the most relevant paragraph
+      const paragraphs = text.split(/\n{2,}|\r\n{2,}/).filter((p: string) => p.trim().length > 20);
+      let bestParagraph = paragraphs[0] || text.slice(0, 500);
+
+      for (const p of paragraphs) {
+        const lowerP = p.toLowerCase();
+        if (queryTerms.some((t) => lowerP.includes(t))) {
+          bestParagraph = p.trim();
+          break;
         }
+      }
 
-        docsArr.push(bestParagraph);
-        metasArr.push({
+      candidateDocs.push({
+        doc: bestParagraph,
+        meta: {
           document: doc.name || doc.originalName || "Uploaded Document",
           source: doc.name || doc.originalName || "Uploaded Document",
           section: `${doc.name || "Document"} • Database Record`,
@@ -118,19 +120,59 @@ export async function searchKnowledge(
           productType: "Database Ingested Document",
           fullText: text,
           highlight: bestParagraph.slice(0, 200) + "...",
-        });
-        distsArr.push(0.05); // low distance = high match confidence
-      }
+        },
+        dist: 0.05, // low distance = high match confidence for exact keyword match
+      });
+    }
+  } else if (mongoResult.status === "rejected") {
+    console.warn("MongoDB query error in hybrid search:", mongoResult.reason);
+  }
 
-      if (docsArr.length > 0) {
-        results.documents = [docsArr];
-        results.metadatas = [metasArr];
-        results.distances = [distsArr];
-        return results;
+  // Add Chroma Results (Semantic matches)
+  if (chromaResult.status === "fulfilled" && chromaResult.value) {
+    const chromaRes = chromaResult.value;
+    if (chromaRes?.documents?.[0]) {
+      const docs = chromaRes.documents[0] as string[];
+      const metas = chromaRes.metadatas?.[0] || [];
+      const dists = chromaRes.distances?.[0] || [];
+
+      for (let i = 0; i < docs.length; i++) {
+        if (!docs[i]) continue;
+        const d = dists[i];
+        candidateDocs.push({
+          doc: docs[i],
+          meta: metas[i] || {},
+          dist: typeof d === "number" ? d : 0.5,
+        });
       }
     }
-  } catch (mongoError) {
-    console.warn("MongoDB fallback query error:", mongoError);
+  } else if (chromaResult.status === "rejected") {
+    console.warn("ChromaDB vector search failed:", chromaResult.reason);
+  }
+
+  if (candidateDocs.length === 0) {
+    return results;
+  }
+
+  // Deduplicate and rank
+  candidateDocs.sort((a, b) => a.dist - b.dist);
+
+  const uniqueDocs: typeof candidateDocs = [];
+  const seenContent = new Set<string>();
+
+  for (const item of candidateDocs) {
+    const cleanDoc = item.doc.trim().slice(0, 80); // Deduplicate by first 80 chars
+    if (!seenContent.has(cleanDoc)) {
+      seenContent.add(cleanDoc);
+      uniqueDocs.push(item);
+      if (uniqueDocs.length >= topK) break;
+    }
+  }
+
+  if (uniqueDocs.length > 0) {
+    results.documents = [uniqueDocs.map(d => d.doc)];
+    results.metadatas = [uniqueDocs.map(d => d.meta)];
+    results.distances = [uniqueDocs.map(d => d.dist)];
   }
 
   return results;
